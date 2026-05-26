@@ -63,7 +63,15 @@ Do not commit a real API key into the Unity prefab or project files.
 ## Controls
 
 - `Space`: hold to record microphone input in the Unity Editor
-- Quest index trigger: hold to record microphone input on headset
+- Quest index trigger: hold to record microphone input on Meta Quest 2
+- `A`: ask what the product is
+- `B`: object to the price
+- `X`: ask for proof
+- `Y`: accept the deal
+- Right thumbstick up: ask about competitors
+- Right thumbstick down: reject the pitch
+- Right thumbstick left: ask about contracts
+- Right thumbstick right: say maybe / think about it
 - `T`: start talking animation
 - `Y`: stop talking animation
 - `W`: start pacing animation

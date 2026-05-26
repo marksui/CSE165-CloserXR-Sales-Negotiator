@@ -35,11 +35,13 @@ namespace CloserXR.SalesNegotiator
             SalesAgentPacer pacer = GetOrAdd<SalesAgentPacer>();
             SalesConversationManager conversation = GetOrAdd<SalesConversationManager>();
             PushToTalkSpeechInput speechInput = GetOrAdd<PushToTalkSpeechInput>();
+            QuestControllerConversationInput questInput = GetOrAdd<QuestControllerConversationInput>();
             SalesConversationDebugHud hud = GetOrAdd<SalesConversationDebugHud>();
 
             pacer.Assign(animator, mainCamera != null ? mainCamera.transform : null);
             conversation.Configure(gemini, router, animator, pacer);
             speechInput.Assign(conversation);
+            questInput.Assign(conversation);
             hud.Assign(conversation, speechInput);
 
             if (enablePassthrough)

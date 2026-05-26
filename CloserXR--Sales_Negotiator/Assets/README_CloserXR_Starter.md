@@ -28,6 +28,18 @@ The menu command creates:
 - `S`: sad idle
 - `R`: reset to idle
 
+## Meta Quest 2 Controls
+
+- Right index trigger: hold to record microphone input
+- `A`: ask what the product is
+- `B`: object to the price
+- `X`: ask for proof
+- `Y`: accept the deal
+- Right thumbstick up: ask about competitors
+- Right thumbstick down: reject the pitch
+- Right thumbstick left: ask about contracts
+- Right thumbstick right: say maybe / think about it
+
 ## Running the proposal demo
 
 `Assets/Prefabs/SalesAgent.prefab` has a `CloserXRDemoRuntime` component. In Play Mode it sets up:

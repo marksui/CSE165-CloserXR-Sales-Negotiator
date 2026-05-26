@@ -54,6 +54,7 @@ namespace CloserXR.SalesNegotiator
             GUILayout.Label($"Status: {conversationManager.Status}");
             GUILayout.Label($"Gemini: {(conversationManager.HasGeminiKey ? "connected" : "local fallback")}");
             GUILayout.Label($"Mic: {(speechInput != null && speechInput.IsRecording ? "recording" : "hold Space / Quest trigger")}");
+            GUILayout.Label("Quest: A product, B price, X proof, Y deal, right stick more lines");
 
             GUILayout.Space(8);
             GUILayout.Label($"User: {conversationManager.LastUserText}");
