@@ -1573,6 +1573,8 @@ GameObject:
   - component: {fileID: 4903887547806752320}
   - component: {fileID: 3967881765551471407}
   - component: {fileID: 6779833012514898472}
+  - component: {fileID: 5871437061126402218}
+  - component: {fileID: 8797318254058005511}
   m_Layer: 0
   m_Name: SalesAgent
   m_TagString: Untagged
@@ -1706,6 +1708,39 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   agentAnimator: {fileID: 4903887547806752320}
+--- !u!114 &5871437061126402218
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6451866310721777581}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 74bd8b5ce29f4a2ba0109286cd5a3d77, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  apiKeyOverride: 
+  apiKeyEnvironmentVariable: GEMINI_API_KEY
+  model: gemini-2.5-flash
+  temperature: 0.9
+  maxOutputTokens: 180
+--- !u!114 &8797318254058005511
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6451866310721777581}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b2f1180a92184084bb7d4a9b42ee21b3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  bootstrapOnAwake: 1
+  enablePassthrough: 1
+  enableSpatialAnchorOnDevice: 1
+  repositionDefaultCameraForDemo: 1
 --- !u!1 &6631409450490591012
 GameObject:
   m_ObjectHideFlags: 0

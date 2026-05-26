@@ -280,6 +280,11 @@ namespace CloserXR.SalesNegotiator.Editor
 
             debugControls.AssignTarget(driver);
 
+            if (instance.GetComponent<CloserXRDemoRuntime>() == null)
+            {
+                instance.AddComponent<CloserXRDemoRuntime>();
+            }
+
             GameObject prefab = PrefabUtility.SaveAsPrefabAsset(instance, PrefabPath);
             UnityEngine.Object.DestroyImmediate(instance);
             AssetDatabase.SaveAssets();
