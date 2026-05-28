@@ -1,3 +1,8 @@
+# Secrets — never commit real API keys
+.env
+*.env
+**/[Aa]ssets/[Ss]treaming[Aa]ssets/gemini_key.txt
+
 # Unity projects in subfolders
 **/.utmp/
 **/[Ll]ibrary/

@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using UnityEngine;
 
 namespace CloserXR.SalesNegotiator
@@ -125,7 +126,7 @@ namespace CloserXR.SalesNegotiator
             }
         }
 
-        public void RouteAgentText(string responseText)
+        public void RouteAgentText(string responseText, float delaySeconds = 0f)
         {
             if (agentAnimator == null || string.IsNullOrWhiteSpace(responseText))
             {
@@ -139,8 +140,21 @@ namespace CloserXR.SalesNegotiator
 
             if (ContainsAny(responseText, closingKeywords))
             {
-                agentAnimator.Point();
+                if (delaySeconds > 0f)
+                {
+                    StartCoroutine(DelayedGesture(delaySeconds, agentAnimator.Point));
+                }
+                else
+                {
+                    agentAnimator.Point();
+                }
             }
+        }
+
+        private static IEnumerator DelayedGesture(float delay, Action gesture)
+        {
+            yield return new WaitForSeconds(delay);
+            gesture?.Invoke();
         }
 
         private static bool ContainsAny(string text, string[] keywords)

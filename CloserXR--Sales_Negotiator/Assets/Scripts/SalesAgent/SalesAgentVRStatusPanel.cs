@@ -34,6 +34,7 @@ namespace CloserXR.SalesNegotiator
         private static readonly Color MutedColor = new Color(0.34f, 0.45f, 0.48f, 1f);
         private static readonly Color ReadyColor = new Color(0.07f, 0.58f, 0.46f, 1f);
         private static readonly Color BusyColor = new Color(0.9f, 0.52f, 0.18f, 1f);
+        private static readonly Color RecordingColor = new Color(0.95f, 0.22f, 0.22f, 1f);
         private static readonly Color FallbackColor = new Color(0.16f, 0.43f, 0.62f, 1f);
 
         private void Awake()
@@ -191,13 +192,16 @@ namespace CloserXR.SalesNegotiator
             bool recording = speechInput != null && speechInput.IsRecording;
             bool busy = conversationManager != null && conversationManager.IsBusy;
 
-            Color railColor = recording || busy ? BusyColor : hasGeminiKey ? ReadyColor : FallbackColor;
+            Color railColor = recording ? RecordingColor : busy ? BusyColor : hasGeminiKey ? ReadyColor : FallbackColor;
             if (statusRail != null)
             {
                 statusRail.color = railColor;
             }
 
-            string micStatus = recording ? "Recording" : "Idle";
+            // Pulse a dot indicator while the mic is hot so it's obvious in the headset.
+            string micStatus = recording
+                ? (Mathf.Sin(Time.time * 8f) > 0f ? "● REC" : "  REC")
+                : "Idle";
             string geminiStatus = hasGeminiKey ? "Connected" : "Local fallback";
             string roomStatus = roomMap != null && roomMap.HasRoomBounds ? roomMap.BoundarySourceLabel : "Searching";
 

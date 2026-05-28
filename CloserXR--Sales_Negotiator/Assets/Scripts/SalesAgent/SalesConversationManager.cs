@@ -19,8 +19,12 @@ namespace CloserXR.SalesNegotiator
         private SalesDialogueGestureRouter gestureRouter;
         private SalesAgentAnimator agentAnimator;
         private SalesAgentPacer pacer;
+        private SalesAgentTTS tts;
         private Coroutine speakingRoutine;
         private bool waitingForGemini;
+
+        // Slight delay so gestures fire after TTS audio has actually started.
+        private const float GestureStartDelay = 0.2f;
 
         public string LastUserText { get; private set; } = "";
         public string LastAgentText { get; private set; } = "";
@@ -38,6 +42,7 @@ namespace CloserXR.SalesNegotiator
         {
             if (startWithOpeningPitch && string.IsNullOrWhiteSpace(LastAgentText))
             {
+                geminiClient?.InitHistory(salesPrompt, openingLine);
                 DeliverAgentResponse(openingLine);
             }
         }
@@ -46,12 +51,14 @@ namespace CloserXR.SalesNegotiator
             GeminiSalesClient gemini,
             SalesDialogueGestureRouter router,
             SalesAgentAnimator animator,
-            SalesAgentPacer agentPacer)
+            SalesAgentPacer agentPacer,
+            SalesAgentTTS agentTts)
         {
             geminiClient = gemini;
             gestureRouter = router;
             agentAnimator = animator;
             pacer = agentPacer;
+            tts = agentTts;
         }
 
         public void SubmitUserText(string userText)
@@ -170,32 +177,45 @@ namespace CloserXR.SalesNegotiator
         private void DeliverAgentResponse(string response)
         {
             LastAgentText = response;
-            Status = geminiClient != null && geminiClient.HasApiKey ? "Gemini response" : "Local demo response";
+            Status = "Speaking...";
 
             SalesIntent agentIntent = SalesIntentClassifier.ClassifyAgentText(response);
-            gestureRouter?.RouteAgentText(response);
+            gestureRouter?.RouteAgentText(response, GestureStartDelay);
             pacer?.SetIntent(agentIntent == SalesIntent.Closing ? SalesIntent.Closing : SalesIntent.Neutral);
 
             if (speakingRoutine != null)
             {
                 StopCoroutine(speakingRoutine);
+                speakingRoutine = null;
             }
 
-            speakingRoutine = StartCoroutine(SimulateSpeaking(response));
+            IsBusy = true;
+            gestureRouter?.AgentStartedSpeaking();
+
+            if (tts != null)
+            {
+                tts.Speak(response, OnSpeakingComplete);
+            }
+            else
+            {
+                speakingRoutine = StartCoroutine(SimulateSpeaking(response));
+            }
+        }
+
+        private void OnSpeakingComplete()
+        {
+            gestureRouter?.AgentStoppedSpeaking();
+            pacer?.GoIdle();
+            Status = geminiClient != null && geminiClient.HasApiKey ? "Ready (Gemini)" : "Ready (local)";
+            IsBusy = false;
         }
 
         private IEnumerator SimulateSpeaking(string response)
         {
-            IsBusy = true;
-            gestureRouter?.AgentStartedSpeaking();
-
             float seconds = Mathf.Clamp(response.Split(' ').Length * 0.22f, 2.2f, 8f);
             yield return new WaitForSeconds(seconds);
-
-            gestureRouter?.AgentStoppedSpeaking();
-            pacer?.GoIdle();
-            Status = "Ready";
-            IsBusy = false;
+            speakingRoutine = null;
+            OnSpeakingComplete();
         }
 
         private void StopCurrentSpeech()
@@ -206,6 +226,7 @@ namespace CloserXR.SalesNegotiator
                 speakingRoutine = null;
             }
 
+            tts?.Stop();
             gestureRouter?.AgentStoppedSpeaking();
             pacer?.GoIdle();
             IsBusy = false;
@@ -287,6 +308,7 @@ namespace CloserXR.SalesNegotiator
             gestureRouter = gestureRouter != null ? gestureRouter : GetComponent<SalesDialogueGestureRouter>();
             agentAnimator = agentAnimator != null ? agentAnimator : GetComponent<SalesAgentAnimator>();
             pacer = pacer != null ? pacer : GetComponent<SalesAgentPacer>();
+            tts = tts != null ? tts : GetComponent<SalesAgentTTS>();
         }
     }
 }

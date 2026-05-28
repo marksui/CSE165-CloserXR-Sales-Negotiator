@@ -144,6 +144,16 @@ namespace CloserXR.SalesNegotiator
             SetTrigger(resetHash);
         }
 
+        // Modulate the animator's global speed while the agent is talking to produce
+        // organic lip-variation without requiring real phoneme data.
+        public void SetTalkingSpeed(float speed)
+        {
+            if (animator != null)
+            {
+                animator.speed = Mathf.Clamp(speed, 0.5f, 2f);
+            }
+        }
+
         private void CacheHashes()
         {
             talkingHash = Animator.StringToHash(talkingBool);

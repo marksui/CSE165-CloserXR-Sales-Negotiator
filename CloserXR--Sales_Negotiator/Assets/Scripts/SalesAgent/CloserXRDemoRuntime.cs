@@ -47,6 +47,7 @@ namespace CloserXR.SalesNegotiator
 
             GeminiSalesClient gemini = GetOrAdd<GeminiSalesClient>();
             SalesAgentPacer pacer = GetOrAdd<SalesAgentPacer>();
+            SalesAgentTTS tts = GetOrAdd<SalesAgentTTS>();
             SpatialRoomMapDemo roomMap = enableRoomOutlineDemo ? GetOrAdd<SpatialRoomMapDemo>() : null;
             SalesConversationManager conversation = GetOrAdd<SalesConversationManager>();
             PushToTalkSpeechInput speechInput = GetOrAdd<PushToTalkSpeechInput>();
@@ -56,9 +57,10 @@ namespace CloserXR.SalesNegotiator
             SalesAgentMaterialStyler materialStyler = GetOrAdd<SalesAgentMaterialStyler>();
             SalesAgentFaceFeatures faceFeatures = GetOrAdd<SalesAgentFaceFeatures>();
 
+            tts.Assign(animator);
             pacer.Assign(animator, mainCamera != null ? mainCamera.transform : null);
             pacer.AssignRoomMap(roomMap);
-            conversation.Configure(gemini, router, animator, pacer);
+            conversation.Configure(gemini, router, animator, pacer, tts);
             speechInput.Assign(conversation);
             questInput.Assign(conversation);
             hud.Assign(conversation, speechInput);
