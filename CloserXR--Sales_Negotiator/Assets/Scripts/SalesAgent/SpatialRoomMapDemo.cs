@@ -29,6 +29,7 @@ namespace CloserXR.SalesNegotiator
         private int lineCursor;
 
         public bool HasRoomBounds { get; private set; }
+        public string BoundarySourceLabel { get; private set; } = "Searching";
 
         private void Awake()
         {
@@ -69,14 +70,16 @@ namespace CloserXR.SalesNegotiator
         private void RefreshRoomOutline()
         {
             Vector3[] footprint = null;
-            if (preferQuestGuardianBoundary)
+            bool usingGuardian = preferQuestGuardianBoundary && TryReadQuestGuardianFootprint(out footprint);
+            if (usingGuardian)
             {
-                TryReadQuestGuardianFootprint(out footprint);
+                BoundarySourceLabel = "Guardian";
             }
 
             if (footprint == null || footprint.Length < 3)
             {
                 footprint = BuildFallbackFootprint();
+                BoundarySourceLabel = "Demo boundary";
             }
 
             UpdateFloorBounds(footprint);

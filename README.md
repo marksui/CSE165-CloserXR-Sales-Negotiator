@@ -31,6 +31,7 @@ Unity version:
 - Animator state machine for talking, pacing, pointing, arguing, dismissing, and celebrating
 - Basic spatial anchor support on device builds
 - Proximity-aware pacing that stays inside the visible room bounds
+- VR status panel showing controls, system state, microphone state, room source, and recent dialogue
 - Push-to-talk microphone input
 - Gemini REST API integration
 - Local canned dialogue fallback when no API key is available
@@ -42,6 +43,8 @@ Unity version:
 3. Connect a Meta Quest 2.
 4. Build and run the scene to the headset.
 5. Use the Quest controller inputs below to run the sales negotiation.
+
+The floating VR panel shows the available controls, Gemini/microphone/room status, and the latest user and agent lines.
 
 Without a Gemini key, use the preset Quest inputs:
 
@@ -90,6 +93,7 @@ Do not commit a real API key into the Unity prefab or project files.
 - `Assets/Animations/SalesAgent.controller`
 - `Assets/Scripts/SalesAgent/`
 - `Assets/Scripts/SalesAgent/SpatialRoomMapDemo.cs`
+- `Assets/Scripts/SalesAgent/SalesAgentVRStatusPanel.cs`
 - `Assets/Mixamo/`
 
 ## Proposal Coverage
@@ -97,5 +101,6 @@ Do not commit a real API key into the Unity prefab or project files.
 - Passthrough: bootstrapped at runtime through Meta XR components
 - Spatial anchors: added on Android device builds
 - Room mapping demo: `SpatialRoomMapDemo` reads Quest Guardian play-area geometry when available
+- VR UI: `SalesAgentVRStatusPanel` shows Quest controls, Gemini mode, mic state, room source, and recent dialogue
 - Conversation-aware gestures: user and agent text are classified into price pushback, rejection, agreement, uncertainty, and closing intents
 - Spatial proximity: the agent backs off for objections and moves closer when closing the sale

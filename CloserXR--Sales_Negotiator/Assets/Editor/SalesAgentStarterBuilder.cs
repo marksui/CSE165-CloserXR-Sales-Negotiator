@@ -285,6 +285,11 @@ namespace CloserXR.SalesNegotiator.Editor
                 instance.AddComponent<SpatialRoomMapDemo>();
             }
 
+            if (instance.GetComponent<SalesAgentVRStatusPanel>() == null)
+            {
+                instance.AddComponent<SalesAgentVRStatusPanel>();
+            }
+
             if (instance.GetComponent<CloserXRDemoRuntime>() == null)
             {
                 instance.AddComponent<CloserXRDemoRuntime>();

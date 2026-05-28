@@ -9,6 +9,7 @@ namespace CloserXR.SalesNegotiator
         [SerializeField] private bool enablePassthrough = true;
         [SerializeField] private bool enableSpatialAnchorOnDevice = true;
         [SerializeField] private bool enableRoomOutlineDemo = true;
+        [SerializeField] private bool enableVrStatusPanel = true;
         [SerializeField] private bool repositionDefaultCameraForDemo = true;
 
         private void Awake()
@@ -39,6 +40,7 @@ namespace CloserXR.SalesNegotiator
             PushToTalkSpeechInput speechInput = GetOrAdd<PushToTalkSpeechInput>();
             QuestControllerConversationInput questInput = GetOrAdd<QuestControllerConversationInput>();
             SalesConversationDebugHud hud = GetOrAdd<SalesConversationDebugHud>();
+            SalesAgentVRStatusPanel vrStatusPanel = enableVrStatusPanel ? GetOrAdd<SalesAgentVRStatusPanel>() : null;
 
             pacer.Assign(animator, mainCamera != null ? mainCamera.transform : null);
             pacer.AssignRoomMap(roomMap);
@@ -46,6 +48,7 @@ namespace CloserXR.SalesNegotiator
             speechInput.Assign(conversation);
             questInput.Assign(conversation);
             hud.Assign(conversation, speechInput);
+            vrStatusPanel?.Assign(conversation, speechInput, gemini, roomMap, mainCamera != null ? mainCamera.transform : null);
 
             if (enablePassthrough)
             {
