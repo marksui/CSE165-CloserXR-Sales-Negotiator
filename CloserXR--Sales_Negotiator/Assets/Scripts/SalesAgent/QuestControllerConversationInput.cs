@@ -10,15 +10,15 @@ namespace CloserXR.SalesNegotiator
         [SerializeField] private float submitCooldown = 0.25f;
 
         [Header("Face Buttons")]
-        [SerializeField] private string aButtonLine = "What are you selling?";
-        [SerializeField] private string bButtonLine = "This is too expensive";
-        [SerializeField] private string xButtonLine = "Can you prove it works?";
-        [SerializeField] private string yButtonLine = "Yes, deal, sign me up";
+        [SerializeField] private string aButtonLine = "What kind of life insurance is this?";
+        [SerializeField] private string bButtonLine = "The premium is too expensive";
+        [SerializeField] private string xButtonLine = "How does this protect my family?";
+        [SerializeField] private string yButtonLine = "I want to move forward";
 
         [Header("Right Thumbstick")]
-        [SerializeField] private string thumbstickUpLine = "What makes this better than competitors?";
+        [SerializeField] private string thumbstickUpLine = "How much coverage do I need?";
         [SerializeField] private string thumbstickDownLine = "I'm not interested";
-        [SerializeField] private string thumbstickLeftLine = "Do I have to sign a contract?";
+        [SerializeField] private string thumbstickLeftLine = "Is this term or whole life?";
         [SerializeField] private string thumbstickRightLine = "Maybe I need to think about it";
 
         private float nextSubmitTime;

@@ -6,7 +6,7 @@ namespace CloserXR.SalesNegotiator
     [DisallowMultipleComponent]
     public sealed class SalesAgentVRStatusPanel : MonoBehaviour
     {
-        [SerializeField] private bool showPanel = true;
+        [SerializeField] private bool showPanel;
         [SerializeField] private SalesConversationManager conversationManager;
         [SerializeField] private PushToTalkSpeechInput speechInput;
         [SerializeField] private GeminiSalesClient geminiClient;
@@ -136,8 +136,8 @@ namespace CloserXR.SalesNegotiator
             SetRect(controls.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(34f, -56f), new Vector2(466f, 70f));
             controls.text =
                 "Trigger  Hold to talk\n" +
-                "A Product   B Price   X Proof   Y Accept\n" +
-                "Right stick  Competitors / Reject / Contract / Maybe";
+                "A Policy   B Premium   X Family   Y Accept\n" +
+                "Right stick  Coverage / Reject / Term / Maybe";
 
             Text statusHeader = CreateText(panelRect, "Status Header", 18, FontStyle.Bold, MutedColor, TextAnchor.UpperLeft);
             SetRect(statusHeader.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(34f, -146f), new Vector2(220f, 28f));

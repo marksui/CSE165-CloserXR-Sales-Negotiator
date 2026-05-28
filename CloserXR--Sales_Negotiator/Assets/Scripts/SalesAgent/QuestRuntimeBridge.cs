@@ -15,11 +15,13 @@ namespace CloserXR.SalesNegotiator
         private static readonly Dictionary<string, object> EnumValues = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
 
         private static Type ovrInputType;
+        private static Type ovrCameraRigType;
         private static Type ovrManagerType;
         private static Type ovrPassthroughLayerType;
         private static Type ovrSpatialAnchorType;
         private static bool warnedMissingOvrInput;
         private static bool warnedMissingPassthrough;
+        private static bool warnedMissingCameraRig;
 
         public static bool GetPrimaryIndexTriggerDown()
         {
@@ -55,6 +57,52 @@ namespace CloserXR.SalesNegotiator
             return InvokeOvrInputEnumMethod("GetUp", "Button", buttonName);
         }
 
+        public static Camera EnsureProject3HeadTrackedView(Camera fallbackCamera)
+        {
+            if (Application.isEditor || Application.platform != RuntimePlatform.Android)
+            {
+                return fallbackCamera;
+            }
+
+            ovrCameraRigType = ovrCameraRigType ?? FindType("OVRCameraRig");
+            if (ovrCameraRigType == null)
+            {
+                if (!warnedMissingCameraRig)
+                {
+                    Debug.LogWarning("OVRCameraRig was not found, so CloserXR kept the default Main Camera.");
+                    warnedMissingCameraRig = true;
+                }
+
+                return fallbackCamera;
+            }
+
+            Component cameraRig = UnityEngine.Object.FindObjectOfType(ovrCameraRigType) as Component;
+            GameObject rigObject;
+            if (cameraRig != null)
+            {
+                rigObject = cameraRig.gameObject;
+            }
+            else
+            {
+                rigObject = new GameObject("OVRCameraRig");
+                rigObject.transform.SetPositionAndRotation(Vector3.zero, Quaternion.identity);
+                EnsureOvrManagerAndPassthrough(rigObject);
+                cameraRig = rigObject.AddComponent(ovrCameraRigType);
+            }
+
+            rigObject.transform.SetPositionAndRotation(Vector3.zero, Quaternion.identity);
+            EnsureOvrManagerAndPassthrough(rigObject);
+            InvokePublicInstance(cameraRig, "EnsureGameObjectIntegrity");
+
+            Transform centerEye = GetObjectMember(cameraRig, "centerEyeAnchor") as Transform
+                ?? FindDeepChild(rigObject.transform, "CenterEyeAnchor")
+                ?? rigObject.transform;
+            Camera headCamera = centerEye.GetComponent<Camera>() ?? centerEye.gameObject.AddComponent<Camera>();
+            ConfigureProject3CenterEyeCamera(headCamera, fallbackCamera);
+            DisableFallbackCamera(fallbackCamera, headCamera);
+            return headCamera;
+        }
+
         public static bool EnsurePassthrough(GameObject target)
         {
             target = target != null ? target : new GameObject("CloserXR Camera Runtime");
@@ -85,6 +133,9 @@ namespace CloserXR.SalesNegotiator
             }
 
             SetMember(manager, "isInsightPassthroughEnabled", true);
+            SetEnumMember(manager, "trackingOriginType", "FloorLevel");
+            SetMember(manager, "launchSimultaneousHandsControllersOnStartup", true);
+            SetMember(manager, "SimultaneousHandsAndControllersEnabled", true);
             SetMember(manager, "shouldBoundaryVisibilityBeSuppressed", true);
 
             Component passthroughLayer = UnityEngine.Object.FindObjectOfType(ovrPassthroughLayerType) as Component;
@@ -97,6 +148,58 @@ namespace CloserXR.SalesNegotiator
             SetMember(passthroughLayer, "textureOpacity", 1f);
             SetMember(passthroughLayer, "edgeRenderingEnabled", false);
             return true;
+        }
+
+        private static void EnsureOvrManagerAndPassthrough(GameObject target)
+        {
+            EnsurePassthrough(target);
+        }
+
+        private static void ConfigureProject3CenterEyeCamera(Camera headCamera, Camera fallbackCamera)
+        {
+            headCamera.tag = "MainCamera";
+            headCamera.clearFlags = CameraClearFlags.SolidColor;
+            headCamera.backgroundColor = new Color(0f, 0f, 0f, 0f);
+            headCamera.stereoTargetEye = StereoTargetEyeMask.Both;
+
+            if (fallbackCamera != null)
+            {
+                headCamera.nearClipPlane = fallbackCamera.nearClipPlane;
+                headCamera.farClipPlane = fallbackCamera.farClipPlane;
+                headCamera.fieldOfView = fallbackCamera.fieldOfView;
+                headCamera.cullingMask = fallbackCamera.cullingMask;
+            }
+
+            AudioListener listener = headCamera.GetComponent<AudioListener>();
+            if (listener == null)
+            {
+                listener = headCamera.gameObject.AddComponent<AudioListener>();
+            }
+
+            listener.enabled = true;
+        }
+
+        private static void DisableFallbackCamera(Camera fallbackCamera, Camera headCamera)
+        {
+            if (fallbackCamera == null || fallbackCamera == headCamera)
+            {
+                return;
+            }
+
+            fallbackCamera.tag = "Untagged";
+            fallbackCamera.enabled = false;
+
+            AudioListener fallbackListener = fallbackCamera.GetComponent<AudioListener>();
+            if (fallbackListener != null)
+            {
+                fallbackListener.enabled = false;
+            }
+
+            RoomCameraController editorController = fallbackCamera.GetComponent<RoomCameraController>();
+            if (editorController != null)
+            {
+                editorController.enabled = false;
+            }
         }
 
         public static bool EnsureSpatialAnchor(GameObject target)
@@ -221,6 +324,81 @@ namespace CloserXR.SalesNegotiator
 
             FieldInfo field = type.GetField(memberName, PublicInstance);
             field?.SetValue(target, value);
+        }
+
+        private static void SetEnumMember(object target, string memberName, string enumValueName)
+        {
+            if (target == null)
+            {
+                return;
+            }
+
+            Type type = target.GetType();
+            PropertyInfo property = type.GetProperty(memberName, PublicInstance);
+            if (property != null && property.CanWrite && property.PropertyType.IsEnum)
+            {
+                property.SetValue(target, Enum.Parse(property.PropertyType, enumValueName));
+                return;
+            }
+
+            FieldInfo field = type.GetField(memberName, PublicInstance);
+            if (field != null && field.FieldType.IsEnum)
+            {
+                field.SetValue(target, Enum.Parse(field.FieldType, enumValueName));
+            }
+        }
+
+        private static object GetObjectMember(object target, string memberName)
+        {
+            if (target == null)
+            {
+                return null;
+            }
+
+            Type type = target.GetType();
+            PropertyInfo property = type.GetProperty(memberName, PublicInstance);
+            if (property != null && property.CanRead)
+            {
+                return property.GetValue(target);
+            }
+
+            FieldInfo field = type.GetField(memberName, PublicInstance);
+            return field != null ? field.GetValue(target) : null;
+        }
+
+        private static void InvokePublicInstance(object target, string methodName)
+        {
+            if (target == null)
+            {
+                return;
+            }
+
+            MethodInfo method = target.GetType().GetMethod(methodName, PublicInstance, null, Type.EmptyTypes, null);
+            method?.Invoke(target, null);
+        }
+
+        private static Transform FindDeepChild(Transform root, string childName)
+        {
+            if (root == null)
+            {
+                return null;
+            }
+
+            if (string.Equals(root.name, childName, StringComparison.OrdinalIgnoreCase))
+            {
+                return root;
+            }
+
+            for (int i = 0; i < root.childCount; i++)
+            {
+                Transform match = FindDeepChild(root.GetChild(i), childName);
+                if (match != null)
+                {
+                    return match;
+                }
+            }
+
+            return null;
         }
 
         private static Type FindType(string typeName)

@@ -16,6 +16,7 @@ namespace CloserXR.SalesNegotiator
             "price",
             "cost",
             "overpriced",
+            "premium",
             "can't afford",
             "cannot afford",
             "budget"
@@ -37,6 +38,8 @@ namespace CloserXR.SalesNegotiator
             "deal",
             "i'm in",
             "im in",
+            "move forward",
+            "apply",
             "sounds good",
             "sign me up"
         };
@@ -59,7 +62,10 @@ namespace CloserXR.SalesNegotiator
             "deal",
             "guarantee",
             "opportunity",
-            "investment"
+            "protection",
+            "protect your family",
+            "beneficiary",
+            "application"
         };
 
         private void Reset()

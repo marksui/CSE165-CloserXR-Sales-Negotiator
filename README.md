@@ -1,6 +1,6 @@
-# CloserXR - Sales Negotiator
+# CloserXR - Life Insurance Sales Negotiator
 
-CloserXR is a CSE 165 mixed reality prototype where a charismatic AI sales agent pitches a fake product to the user. The project focuses on conversation-aware body language: the avatar talks, points, paces, argues, dismisses objections, and celebrates based on the user's response.
+CloserXR is a CSE 165 mixed reality prototype where a charismatic life insurance sales agent practices a pitch with the user. The project focuses on conversation-aware body language: the avatar talks, points, paces, argues, dismisses objections, and celebrates based on the user's response.
 
 ## Team
 
@@ -26,6 +26,7 @@ Unity version:
 ## Features
 
 - Meta Quest passthrough setup for MR
+- Project 3 style head-tracked Quest view using `OVRCameraRig` / `CenterEyeAnchor`
 - Guardian-backed room outline for the Quest play area
 - Sales agent avatar using Mixamo animations
 - Animator state machine for talking, pacing, pointing, arguing, dismissing, and celebrating
@@ -35,6 +36,7 @@ Unity version:
 - Push-to-talk microphone input
 - Gemini REST API integration
 - Local canned dialogue fallback when no API key is available
+- Life insurance role-play lines for premiums, coverage, term-vs-whole questions, family protection, and closing
 
 ## Running The Demo
 
@@ -48,17 +50,17 @@ The floating VR panel shows the available controls, Gemini/microphone/room statu
 
 Without a Gemini key, use the preset Quest inputs:
 
-- `A`: ask what the product is
-- `B`: object to the price
-- `X`: ask for proof
-- `Y`: accept the deal
+- `A`: ask what kind of life insurance this is
+- `B`: object to the premium
+- `X`: ask how it protects your family
+- `Y`: move forward
 
 ## Final Demo Flow
 
 1. Start the headset build and point out the passthrough/room outline setup.
 2. Let the agent deliver the opening pitch.
-3. Press `B` to trigger a defensive argument and extra distance.
-4. Press `X` to show adaptive sales dialogue.
+3. Press `B` to trigger a premium objection and extra distance.
+4. Press `X` to show family-protection dialogue.
 5. Press right thumbstick right to show uncertainty/body-language response.
 6. Press `Y` to trigger the closing/celebration moment.
 
@@ -77,13 +79,14 @@ Do not commit a real API key into the Unity prefab or project files.
 ## Controls
 
 - Quest index trigger: hold to record microphone input on Meta Quest 2
-- `A`: ask what the product is
-- `B`: object to the price
-- `X`: ask for proof
-- `Y`: accept the deal
-- Right thumbstick up: ask about competitors
+- Quest headset movement: controls the player view/head direction
+- `A`: ask what kind of life insurance this is
+- `B`: object to the premium
+- `X`: ask how it protects your family
+- `Y`: move forward
+- Right thumbstick up: ask how much coverage is needed
 - Right thumbstick down: reject the pitch
-- Right thumbstick left: ask about contracts
+- Right thumbstick left: ask term vs whole life
 - Right thumbstick right: say maybe / think about it
 
 ## Important Files

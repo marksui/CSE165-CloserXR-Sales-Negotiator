@@ -9,7 +9,8 @@ namespace CloserXR.SalesNegotiator
         [SerializeField] private bool enablePassthrough = true;
         [SerializeField] private bool enableSpatialAnchorOnDevice = true;
         [SerializeField] private bool enableRoomOutlineDemo = true;
-        [SerializeField] private bool enableVrStatusPanel = true;
+        [SerializeField] private bool useProject3HeadTrackedView = true;
+        [SerializeField] private bool enableVrStatusPanel;
         [SerializeField] private bool enableRoomCameraControls = true;
         [SerializeField] private bool repositionDefaultCameraForDemo = true;
 
@@ -26,6 +27,11 @@ namespace CloserXR.SalesNegotiator
         public void Bootstrap()
         {
             Camera mainCamera = Camera.main;
+            if (useProject3HeadTrackedView)
+            {
+                mainCamera = QuestRuntimeBridge.EnsureProject3HeadTrackedView(mainCamera) ?? mainCamera;
+            }
+
             if (repositionDefaultCameraForDemo && mainCamera != null && mainCamera.transform.position.z < -5f)
             {
                 mainCamera.transform.SetPositionAndRotation(new Vector3(0f, 1.6f, 0f), Quaternion.identity);
@@ -58,6 +64,7 @@ namespace CloserXR.SalesNegotiator
             hud.Assign(conversation, speechInput);
             vrStatusPanel?.Assign(conversation, speechInput, gemini, roomMap, mainCamera != null ? mainCamera.transform : null);
             materialStyler.ApplyNow();
+            faceFeatures.AssignGazeTarget(mainCamera != null ? mainCamera.transform : null);
             faceFeatures.EnsureFace();
 
             if (enablePassthrough)

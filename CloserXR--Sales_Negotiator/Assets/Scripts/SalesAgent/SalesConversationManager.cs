@@ -8,10 +8,10 @@ namespace CloserXR.SalesNegotiator
     {
         [TextArea(4, 8)]
         [SerializeField] private string salesPrompt =
-            "You are CloserXR, a charismatic Wolf-of-Wall-Street-style AI sales agent pitching a fake AI sales automation tool. Be persuasive, theatrical, and concise. If the user pushes back, defend the value. If they agree, celebrate and close.";
+            "You are CloserXR, a charismatic but ethical life insurance sales agent in a VR role-play demo. Sell life insurance as family protection. Be persuasive, concise, and responsive. Explain term and whole life at a high level, handle premium concerns, and close when the user agrees. Do not give real financial, legal, or insurance advice; recommend a licensed advisor for actual decisions.";
 
         [SerializeField] private string openingLine =
-            "Alright, picture this: an AI closer that never sleeps, never forgets a lead, and turns cold conversations into signed deals. This is the kind of opportunity people wish they saw earlier.";
+            "Alright, picture this: if something happened tomorrow, your family would still have money for the mortgage, tuition, and everyday life. This policy is about protecting the people who count on you.";
 
         [SerializeField] private bool startWithOpeningPitch = true;
 
@@ -213,43 +213,53 @@ namespace CloserXR.SalesNegotiator
 
         private string BuildLocalReply(SalesIntent intent, string userText)
         {
-            if (ContainsAny(userText, "what are you selling", "what do you sell", "what does it do", "what is this"))
+            if (ContainsAny(userText, "what are you selling", "what do you sell", "what does it do", "what is this", "what kind of life insurance", "policy"))
             {
-                return "I am selling CloserXR: an AI sales automation tool that handles objections, reads the room, and keeps the pitch moving until the deal is ready.";
+                return "I am selling life insurance: a policy that pays a benefit to your beneficiaries if you pass away, so your family has money for housing, debt, childcare, and final expenses.";
             }
 
-            if (ContainsAny(userText, "prove", "proof", "works", "results"))
+            if (ContainsAny(userText, "prove", "proof", "works", "results", "protect", "family"))
             {
-                return "Proof is exactly why we start with a pilot. Give it your hardest leads, watch the objections it catches, and then decide from the numbers.";
+                return "The proof is in the coverage plan. We estimate income replacement, debts, mortgage, and final expenses, then compare the premium against what your family would need.";
+            }
+
+            if (ContainsAny(userText, "coverage", "how much", "beneficiary", "need"))
+            {
+                return "A good starting point is who depends on your income, how much debt you carry, and how many years of support they would need. For a real policy, a licensed advisor should check the numbers.";
+            }
+
+            if (ContainsAny(userText, "term", "whole", "permanent"))
+            {
+                return "Term life is usually lower-cost coverage for a set number of years. Whole life can last longer and may build cash value, but the premium is usually higher.";
             }
 
             if (ContainsAny(userText, "competitor", "better", "different"))
             {
-                return "Most tools just log activity. CloserXR performs in the conversation, adapts to pushback, and gives your team a closer that never loses energy.";
+                return "The better policy is the one that fits your family's risk, budget, and timeline. I would compare coverage amount, term length, riders, and premium before you decide.";
             }
 
-            if (ContainsAny(userText, "contract", "monthly", "cancel", "commitment"))
+            if (ContainsAny(userText, "contract", "monthly", "cancel", "commitment", "application"))
             {
-                return "Start lean: one pilot, one sales motion, one clear target. If it does not earn its seat, you do not scale it.";
+                return "You review the application, premium, beneficiaries, and policy terms before anything is final. The smart move is understanding the coverage before you sign.";
             }
 
             if (ContainsAny(userText, "privacy", "data", "secure"))
             {
-                return "The pitch only works if trust is built in. We keep the workflow scoped, protect customer data, and make every recommendation auditable.";
+                return "Insurance uses sensitive personal and health information, so privacy matters. In the real world, that information should be handled only through secure, approved channels.";
             }
 
             switch (intent)
             {
                 case SalesIntent.PricePushback:
-                    return "Expensive is what people say before they see the pipeline move. One closed customer pays for this, and the rest is pure upside.";
+                    return "I hear you. The premium feels expensive today, but the risk is leaving your family with the mortgage, bills, and final expenses tomorrow.";
                 case SalesIntent.Rejection:
-                    return "I hear the hesitation, but walking away is how competitors keep the advantage. Give me one serious pilot and let the numbers do the talking.";
+                    return "I hear the hesitation. Nobody likes thinking about life insurance, but protecting your family is easier to handle before there is an emergency.";
                 case SalesIntent.Agreement:
-                    return "That is the decision-maker answer I was waiting for. We lock this in now, and your sales floor starts moving faster tomorrow.";
+                    return "Good decision. Next we review the coverage amount, beneficiaries, and application details with a licensed advisor so you know exactly what you are choosing.";
                 case SalesIntent.Uncertain:
-                    return "Thinking is smart, but hesitation has a cost. The question is not whether this works, it is how many deals you lose before you use it.";
+                    return "Thinking it through is smart. Let us make it simple: choose the coverage your family would actually need, then see whether the premium fits your budget.";
                 default:
-                    return "Here is the play: CloserXR reads the room, handles objections, and keeps the pitch alive until the deal is ready to close.";
+                    return "Here is the value: life insurance turns one monthly premium into protection for the people who rely on you most.";
             }
         }
 

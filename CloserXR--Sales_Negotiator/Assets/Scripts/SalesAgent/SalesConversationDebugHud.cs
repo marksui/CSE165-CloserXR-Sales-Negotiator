@@ -10,11 +10,13 @@ namespace CloserXR.SalesNegotiator
         [SerializeField] private SalesConversationManager conversationManager;
         [SerializeField] private PushToTalkSpeechInput speechInput;
         [SerializeField] private bool showHud = true;
-        [SerializeField] private bool showLegacyOnGui;
+        [SerializeField] private bool showCanvasHud;
+        [SerializeField] private bool showLegacyOnGui = true;
         [SerializeField] private Vector2 screenMargin = new Vector2(12f, 12f);
         [SerializeField] private Vector2 panelSize = new Vector2(352f, 232f);
 
         private const int LegacyWidth = 460;
+        private const int LegacyHeight = 360;
         private static readonly Color PanelColor = new Color(0.965f, 0.985f, 0.975f, 0.94f);
         private static readonly Color BorderColor = new Color(0.18f, 0.42f, 0.48f, 0.35f);
         private static readonly Color TitleColor = new Color(0.04f, 0.16f, 0.2f, 1f);
@@ -35,7 +37,18 @@ namespace CloserXR.SalesNegotiator
         private Text agentText;
         private InputField inputField;
         private Font hudFont;
-        private string typedUserText = "This is too expensive";
+        private string typedUserText = "The premium is too expensive";
+        private readonly string[] quickUserLines =
+        {
+            "What kind of life insurance is this?",
+            "The premium is too expensive",
+            "I'm not interested",
+            "How does this protect my family?",
+            "Maybe I need to think about it",
+            "How much coverage do I need?",
+            "Is this term or whole life?",
+            "I want to move forward"
+        };
 
         private void Awake()
         {
@@ -52,7 +65,7 @@ namespace CloserXR.SalesNegotiator
 
         private void OnEnable()
         {
-            if (showHud)
+            if (showHud && showCanvasHud)
             {
                 EnsureHud();
             }
@@ -67,7 +80,7 @@ namespace CloserXR.SalesNegotiator
 
         private void LateUpdate()
         {
-            if (!showHud)
+            if (!showHud || !showCanvasHud)
             {
                 if (hudCanvas != null)
                 {
@@ -125,8 +138,8 @@ namespace CloserXR.SalesNegotiator
 
             inputField = CreateInputField(panel.transform, 14f, 190f, 184f, 28f);
             CreateButton(panel.transform, "Send", 204f, 190f, 46f, 28f, SubmitTypedUserText);
-            CreateButton(panel.transform, "Price", 256f, 190f, 42f, 28f, () => SubmitPreset("This is too expensive"));
-            CreateButton(panel.transform, "Deal", 304f, 190f, 36f, 28f, () => SubmitPreset("Yes, deal, sign me up"));
+            CreateButton(panel.transform, "Price", 256f, 190f, 42f, 28f, () => SubmitPreset("The premium is too expensive"));
+            CreateButton(panel.transform, "Deal", 304f, 190f, 36f, 28f, () => SubmitPreset("I want to move forward"));
 
             UpdateHudText();
         }
@@ -392,11 +405,12 @@ namespace CloserXR.SalesNegotiator
                 return;
             }
 
-            GUILayout.BeginArea(new Rect(18, 18, LegacyWidth, 260), GUI.skin.box);
+            GUILayout.BeginArea(new Rect(18, 18, LegacyWidth, LegacyHeight), GUI.skin.box);
             GUILayout.Label("CloserXR Sales Negotiator");
             GUILayout.Label("Status: " + conversationManager.Status);
             GUILayout.Label("Gemini: " + (conversationManager.HasGeminiKey ? "connected" : "local fallback"));
             GUILayout.Label("Mic: " + (speechInput != null && speechInput.IsRecording ? "recording" : "hold Space / Quest trigger"));
+            GUILayout.Label("Quest: A policy, B premium, X family, Y forward, right stick more lines");
 
             GUILayout.Space(8);
             GUILayout.Label("User: " + conversationManager.LastUserText);
@@ -411,17 +425,16 @@ namespace CloserXR.SalesNegotiator
             {
                 conversationManager.SubmitUserText(typedUserText);
             }
-
-            if (GUILayout.Button("Too expensive"))
-            {
-                SubmitPreset("This is too expensive");
-            }
-
-            if (GUILayout.Button("Deal"))
-            {
-                SubmitPreset("Yes, deal, sign me up");
-            }
             GUILayout.EndHorizontal();
+
+            foreach (string quickUserLine in quickUserLines)
+            {
+                if (GUILayout.Button(quickUserLine))
+                {
+                    SubmitPreset(quickUserLine);
+                }
+            }
+
             GUILayout.EndArea();
 
             Event current = Event.current;

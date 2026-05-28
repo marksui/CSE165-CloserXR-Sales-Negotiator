@@ -1668,6 +1668,7 @@ MonoBehaviour:
   - price
   - cost
   - overpriced
+  - premium
   - can't afford
   - cannot afford
   - budget
@@ -1683,6 +1684,8 @@ MonoBehaviour:
   - deal
   - i'm in
   - im in
+  - move forward
+  - apply
   - sounds good
   - sign me up
   uncertaintyKeywords:
@@ -1698,7 +1701,10 @@ MonoBehaviour:
   - deal
   - guarantee
   - opportunity
-  - investment
+  - protection
+  - protect your family
+  - beneficiary
+  - application
 --- !u!114 &6779833012514898472
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1762,7 +1768,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 369677f252ea47bc89e30f7e810aa85b, type: 3}
   m_Name:
   m_EditorClassIdentifier:
-  showPanel: 1
+  showPanel: 0
   conversationManager: {fileID: 0}
   speechInput: {fileID: 0}
   geminiClient: {fileID: 0}
@@ -1789,7 +1795,9 @@ MonoBehaviour:
   enablePassthrough: 1
   enableSpatialAnchorOnDevice: 1
   enableRoomOutlineDemo: 1
-  enableVrStatusPanel: 1
+  useProject3HeadTrackedView: 1
+  enableVrStatusPanel: 0
+  enableRoomCameraControls: 1
   repositionDefaultCameraForDemo: 1
 --- !u!114 &8689073668079974566
 MonoBehaviour:
@@ -1828,6 +1836,11 @@ MonoBehaviour:
   eyebrowColor: {r: 0.22, g: 0.15, b: 0.1, a: 1}
   mouthColor: {r: 0.46, g: 0.2, b: 0.18, a: 1}
   noseColor: {r: 0.68, g: 0.46, b: 0.36, a: 1}
+  pupilsLookAtUser: 1
+  gazeTarget: {fileID: 0}
+  pupilTravel: 0.0045
+  maxGazeAngle: 35
+  gazeSharpness: 14
 --- !u!1 &6631409450490591012
 GameObject:
   m_ObjectHideFlags: 0
