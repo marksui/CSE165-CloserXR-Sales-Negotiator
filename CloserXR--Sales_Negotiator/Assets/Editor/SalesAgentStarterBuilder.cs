@@ -280,6 +280,11 @@ namespace CloserXR.SalesNegotiator.Editor
 
             debugControls.AssignTarget(driver);
 
+            if (instance.GetComponent<SpatialRoomMapDemo>() == null)
+            {
+                instance.AddComponent<SpatialRoomMapDemo>();
+            }
+
             if (instance.GetComponent<CloserXRDemoRuntime>() == null)
             {
                 instance.AddComponent<CloserXRDemoRuntime>();

@@ -8,6 +8,7 @@ namespace CloserXR.SalesNegotiator
         [SerializeField] private bool bootstrapOnAwake = true;
         [SerializeField] private bool enablePassthrough = true;
         [SerializeField] private bool enableSpatialAnchorOnDevice = true;
+        [SerializeField] private bool enableRoomOutlineDemo = true;
         [SerializeField] private bool repositionDefaultCameraForDemo = true;
 
         private void Awake()
@@ -33,12 +34,14 @@ namespace CloserXR.SalesNegotiator
 
             GeminiSalesClient gemini = GetOrAdd<GeminiSalesClient>();
             SalesAgentPacer pacer = GetOrAdd<SalesAgentPacer>();
+            SpatialRoomMapDemo roomMap = enableRoomOutlineDemo ? GetOrAdd<SpatialRoomMapDemo>() : null;
             SalesConversationManager conversation = GetOrAdd<SalesConversationManager>();
             PushToTalkSpeechInput speechInput = GetOrAdd<PushToTalkSpeechInput>();
             QuestControllerConversationInput questInput = GetOrAdd<QuestControllerConversationInput>();
             SalesConversationDebugHud hud = GetOrAdd<SalesConversationDebugHud>();
 
             pacer.Assign(animator, mainCamera != null ? mainCamera.transform : null);
+            pacer.AssignRoomMap(roomMap);
             conversation.Configure(gemini, router, animator, pacer);
             speechInput.Assign(conversation);
             questInput.Assign(conversation);
