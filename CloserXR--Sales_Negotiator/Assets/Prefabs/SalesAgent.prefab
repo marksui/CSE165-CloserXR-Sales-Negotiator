@@ -1824,9 +1824,9 @@ MonoBehaviour:
   showFeatures: 1
   featureScale: 1
   eyeWhiteColor: {r: 0.96, g: 0.95, b: 0.9, a: 1}
-  pupilColor: {r: 0.045, g: 0.04, b: 0.035, a: 1}
-  eyebrowColor: {r: 0.08, g: 0.07, b: 0.06, a: 1}
-  mouthColor: {r: 0.5, g: 0.18, b: 0.16, a: 1}
+  pupilColor: {r: 0.055, g: 0.04, b: 0.03, a: 1}
+  eyebrowColor: {r: 0.22, g: 0.15, b: 0.1, a: 1}
+  mouthColor: {r: 0.46, g: 0.2, b: 0.18, a: 1}
   noseColor: {r: 0.68, g: 0.46, b: 0.36, a: 1}
 --- !u!1 &6631409450490591012
 GameObject:

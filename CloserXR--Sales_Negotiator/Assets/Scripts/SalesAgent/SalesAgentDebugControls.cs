@@ -6,6 +6,7 @@ namespace CloserXR.SalesNegotiator
     public sealed class SalesAgentDebugControls : MonoBehaviour
     {
         [SerializeField] private SalesAgentAnimator agentAnimator;
+        [SerializeField] private bool requireAltModifier = true;
 
         private void Reset()
         {
@@ -20,6 +21,11 @@ namespace CloserXR.SalesNegotiator
         private void Update()
         {
             if (agentAnimator == null)
+            {
+                return;
+            }
+
+            if (requireAltModifier && !Input.GetKey(KeyCode.LeftAlt) && !Input.GetKey(KeyCode.RightAlt))
             {
                 return;
             }

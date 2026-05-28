@@ -10,6 +10,7 @@ namespace CloserXR.SalesNegotiator
         [SerializeField] private bool enableSpatialAnchorOnDevice = true;
         [SerializeField] private bool enableRoomOutlineDemo = true;
         [SerializeField] private bool enableVrStatusPanel = true;
+        [SerializeField] private bool enableRoomCameraControls = true;
         [SerializeField] private bool repositionDefaultCameraForDemo = true;
 
         private void Awake()
@@ -28,6 +29,11 @@ namespace CloserXR.SalesNegotiator
             if (repositionDefaultCameraForDemo && mainCamera != null && mainCamera.transform.position.z < -5f)
             {
                 mainCamera.transform.SetPositionAndRotation(new Vector3(0f, 1.6f, 0f), Quaternion.identity);
+            }
+
+            if (enableRoomCameraControls)
+            {
+                EnsureRoomCameraControls(mainCamera);
             }
 
             SalesAgentAnimator animator = GetComponent<SalesAgentAnimator>();
@@ -75,6 +81,19 @@ namespace CloserXR.SalesNegotiator
         {
             GameObject target = mainCamera != null ? mainCamera.gameObject : new GameObject("CloserXR Camera Runtime");
             QuestRuntimeBridge.EnsurePassthrough(target);
+        }
+
+        private static void EnsureRoomCameraControls(Camera mainCamera)
+        {
+            if (mainCamera == null || Application.platform == RuntimePlatform.Android)
+            {
+                return;
+            }
+
+            if (!mainCamera.TryGetComponent(out RoomCameraController _))
+            {
+                mainCamera.gameObject.AddComponent<RoomCameraController>();
+            }
         }
 
         private void EnsureSpatialAnchor()

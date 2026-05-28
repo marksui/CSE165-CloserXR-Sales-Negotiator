@@ -11,9 +11,9 @@ namespace CloserXR.SalesNegotiator
         [SerializeField] private bool showFeatures = true;
         [SerializeField] private float featureScale = 1f;
         [SerializeField] private Color eyeWhiteColor = new Color(0.96f, 0.95f, 0.9f, 1f);
-        [SerializeField] private Color pupilColor = new Color(0.045f, 0.04f, 0.035f, 1f);
-        [SerializeField] private Color eyebrowColor = new Color(0.08f, 0.07f, 0.06f, 1f);
-        [SerializeField] private Color mouthColor = new Color(0.5f, 0.18f, 0.16f, 1f);
+        [SerializeField] private Color pupilColor = new Color(0.055f, 0.04f, 0.03f, 1f);
+        [SerializeField] private Color eyebrowColor = new Color(0.22f, 0.15f, 0.1f, 1f);
+        [SerializeField] private Color mouthColor = new Color(0.46f, 0.2f, 0.18f, 1f);
         [SerializeField] private Color noseColor = new Color(0.68f, 0.46f, 0.36f, 1f);
 
         private const string FaceRootName = "CloserXR Face Features";
@@ -48,15 +48,19 @@ namespace CloserXR.SalesNegotiator
                 return;
             }
 
-            CreateOrUpdateFeature(faceRoot, "Left Eye White", PrimitiveType.Sphere, new Vector3(-0.034f, 0.096f, 0.106f), new Vector3(0.028f, 0.016f, 0.007f), eyeWhiteColor);
-            CreateOrUpdateFeature(faceRoot, "Right Eye White", PrimitiveType.Sphere, new Vector3(0.034f, 0.096f, 0.106f), new Vector3(0.028f, 0.016f, 0.007f), eyeWhiteColor);
-            CreateOrUpdateFeature(faceRoot, "Left Pupil", PrimitiveType.Sphere, new Vector3(-0.034f, 0.096f, 0.113f), new Vector3(0.01f, 0.01f, 0.004f), pupilColor);
-            CreateOrUpdateFeature(faceRoot, "Right Pupil", PrimitiveType.Sphere, new Vector3(0.034f, 0.096f, 0.113f), new Vector3(0.01f, 0.01f, 0.004f), pupilColor);
+            RemoveFeature(faceRoot, "Left Brow");
+            RemoveFeature(faceRoot, "Right Brow");
+            RemoveFeature(faceRoot, "Mouth");
 
-            CreateOrUpdateFeature(faceRoot, "Left Brow", PrimitiveType.Cube, new Vector3(-0.034f, 0.12f, 0.109f), new Vector3(0.038f, 0.005f, 0.006f), eyebrowColor);
-            CreateOrUpdateFeature(faceRoot, "Right Brow", PrimitiveType.Cube, new Vector3(0.034f, 0.12f, 0.109f), new Vector3(0.038f, 0.005f, 0.006f), eyebrowColor);
-            CreateOrUpdateFeature(faceRoot, "Nose", PrimitiveType.Sphere, new Vector3(0f, 0.073f, 0.119f), new Vector3(0.015f, 0.023f, 0.013f), noseColor);
-            CreateOrUpdateFeature(faceRoot, "Mouth", PrimitiveType.Cube, new Vector3(0f, 0.044f, 0.116f), new Vector3(0.062f, 0.007f, 0.006f), mouthColor);
+            CreateOrUpdateFeature(faceRoot, "Left Eye White", PrimitiveType.Sphere, new Vector3(-0.033f, 0.093f, 0.108f), new Vector3(0.021f, 0.011f, 0.004f), eyeWhiteColor);
+            CreateOrUpdateFeature(faceRoot, "Right Eye White", PrimitiveType.Sphere, new Vector3(0.033f, 0.093f, 0.108f), new Vector3(0.021f, 0.011f, 0.004f), eyeWhiteColor);
+            CreateOrUpdateFeature(faceRoot, "Left Pupil", PrimitiveType.Sphere, new Vector3(-0.033f, 0.093f, 0.113f), new Vector3(0.006f, 0.006f, 0.0025f), pupilColor);
+            CreateOrUpdateFeature(faceRoot, "Right Pupil", PrimitiveType.Sphere, new Vector3(0.033f, 0.093f, 0.113f), new Vector3(0.006f, 0.006f, 0.0025f), pupilColor);
+
+            CreateOrUpdateFeature(faceRoot, "Left Brow Soft", PrimitiveType.Sphere, new Vector3(-0.033f, 0.111f, 0.111f), new Vector3(0.018f, 0.0025f, 0.0025f), eyebrowColor);
+            CreateOrUpdateFeature(faceRoot, "Right Brow Soft", PrimitiveType.Sphere, new Vector3(0.033f, 0.111f, 0.111f), new Vector3(0.018f, 0.0025f, 0.0025f), eyebrowColor);
+            CreateOrUpdateFeature(faceRoot, "Nose", PrimitiveType.Sphere, new Vector3(0f, 0.072f, 0.118f), new Vector3(0.012f, 0.019f, 0.01f), noseColor);
+            CreateOrUpdateFeature(faceRoot, "Mouth Soft", PrimitiveType.Sphere, new Vector3(0f, 0.043f, 0.116f), new Vector3(0.032f, 0.003f, 0.0025f), mouthColor);
         }
 
         private Transform FindHead()
@@ -116,6 +120,24 @@ namespace CloserXR.SalesNegotiator
                 renderer.sharedMaterial = GetOrCreateMaterial(featureName, color);
                 renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
                 renderer.receiveShadows = false;
+            }
+        }
+
+        private static void RemoveFeature(Transform parent, string featureName)
+        {
+            Transform feature = parent.Find(featureName);
+            if (feature == null)
+            {
+                return;
+            }
+
+            if (Application.isPlaying)
+            {
+                Destroy(feature.gameObject);
+            }
+            else
+            {
+                DestroyImmediate(feature.gameObject);
             }
         }
 
