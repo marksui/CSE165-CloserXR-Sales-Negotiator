@@ -25,14 +25,16 @@ namespace CloserXR.SalesNegotiator
         private Text conversationText;
         private bool built;
 
-        private static readonly Color PanelColor = new Color(0.04f, 0.07f, 0.12f, 0.82f);
-        private static readonly Color BorderColor = new Color(0.28f, 0.36f, 0.48f, 0.85f);
-        private static readonly Color HeaderColor = new Color(0.92f, 0.98f, 1f, 1f);
-        private static readonly Color BodyColor = new Color(0.78f, 0.86f, 0.92f, 1f);
-        private static readonly Color MutedColor = new Color(0.55f, 0.64f, 0.72f, 1f);
-        private static readonly Color ReadyColor = new Color(0.13f, 0.78f, 0.37f, 1f);
-        private static readonly Color BusyColor = new Color(0.96f, 0.69f, 0.18f, 1f);
-        private static readonly Color FallbackColor = new Color(0.28f, 0.58f, 1f, 1f);
+        private static readonly Color PanelColor = new Color(0.96f, 0.985f, 0.975f, 0.94f);
+        private static readonly Color HeaderBandColor = new Color(0.82f, 0.93f, 0.94f, 0.9f);
+        private static readonly Color SectionColor = new Color(1f, 1f, 1f, 0.72f);
+        private static readonly Color BorderColor = new Color(0.18f, 0.42f, 0.48f, 0.48f);
+        private static readonly Color HeaderColor = new Color(0.04f, 0.16f, 0.2f, 1f);
+        private static readonly Color BodyColor = new Color(0.07f, 0.13f, 0.15f, 1f);
+        private static readonly Color MutedColor = new Color(0.34f, 0.45f, 0.48f, 1f);
+        private static readonly Color ReadyColor = new Color(0.07f, 0.58f, 0.46f, 1f);
+        private static readonly Color BusyColor = new Color(0.9f, 0.52f, 0.18f, 1f);
+        private static readonly Color FallbackColor = new Color(0.16f, 0.43f, 0.62f, 1f);
 
         private void Awake()
         {
@@ -120,17 +122,21 @@ namespace CloserXR.SalesNegotiator
             outline.effectColor = BorderColor;
             outline.effectDistance = new Vector2(1.5f, -1.5f);
 
-            statusRail = CreateBlock(panelRect, "Status Rail", new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(14f, -18f), new Vector2(8f, 86f), ReadyColor);
+            CreateBlock(panelRect, "Header Band", new Vector2(0f, 1f), new Vector2(0f, 1f), Vector2.zero, new Vector2(panelSize.x, 116f), HeaderBandColor);
+            CreateBlock(panelRect, "Status Card", new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(24f, -132f), new Vector2(226f, 206f), SectionColor);
+            CreateBlock(panelRect, "Conversation Card", new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(264f, -132f), new Vector2(232f, 206f), SectionColor);
+
+            statusRail = CreateBlock(panelRect, "Status Rail", new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(18f, -20f), new Vector2(8f, 78f), ReadyColor);
 
             Text title = CreateText(panelRect, "Title", 26, FontStyle.Bold, HeaderColor, TextAnchor.UpperLeft);
             SetRect(title.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(34f, -16f), new Vector2(466f, 38f));
-            title.text = "CloserXR  |  Sales Negotiator";
+            title.text = "CloserXR Sales Negotiator";
 
-            Text controls = CreateText(panelRect, "Controls", 20, FontStyle.Normal, BodyColor, TextAnchor.UpperLeft);
-            SetRect(controls.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(34f, -58f), new Vector2(466f, 76f));
+            Text controls = CreateText(panelRect, "Controls", 19, FontStyle.Normal, BodyColor, TextAnchor.UpperLeft);
+            SetRect(controls.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(34f, -56f), new Vector2(466f, 70f));
             controls.text =
                 "Trigger  Hold to talk\n" +
-                "A Product     B Price objection     X Proof     Y Accept\n" +
+                "A Product   B Price   X Proof   Y Accept\n" +
                 "Right stick  Competitors / Reject / Contract / Maybe";
 
             Text statusHeader = CreateText(panelRect, "Status Header", 18, FontStyle.Bold, MutedColor, TextAnchor.UpperLeft);
@@ -171,6 +177,11 @@ namespace CloserXR.SalesNegotiator
 
         private void UpdateText()
         {
+            if (statusText == null || conversationText == null)
+            {
+                return;
+            }
+
             AutoWire();
 
             string agentStatus = conversationManager != null ? conversationManager.Status : "Booting";
@@ -219,7 +230,12 @@ namespace CloserXR.SalesNegotiator
         {
             GameObject textObject = CreateChild(parent, name);
             Text text = textObject.AddComponent<Text>();
-            text.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            Font font = LoadBuiltinFont();
+            if (font != null)
+            {
+                text.font = font;
+            }
+
             text.fontSize = fontSize;
             text.fontStyle = style;
             text.color = color;
@@ -228,6 +244,34 @@ namespace CloserXR.SalesNegotiator
             text.verticalOverflow = VerticalWrapMode.Truncate;
             text.raycastTarget = false;
             return text;
+        }
+
+        private static Font LoadBuiltinFont()
+        {
+            Font font = null;
+
+            try
+            {
+                font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            }
+            catch (System.ArgumentException)
+            {
+            }
+
+            if (font != null)
+            {
+                return font;
+            }
+
+            try
+            {
+                font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            }
+            catch (System.ArgumentException)
+            {
+            }
+
+            return font;
         }
 
         private static Image CreateBlock(

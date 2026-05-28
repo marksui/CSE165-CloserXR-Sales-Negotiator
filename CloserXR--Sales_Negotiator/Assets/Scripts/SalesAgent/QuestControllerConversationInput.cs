@@ -43,49 +43,49 @@ namespace CloserXR.SalesNegotiator
                 return;
             }
 
-            if (OVRInput.GetDown(OVRInput.RawButton.A))
+            if (QuestRuntimeBridge.GetRawButtonDown("A"))
             {
                 Submit(aButtonLine);
                 return;
             }
 
-            if (OVRInput.GetDown(OVRInput.RawButton.B))
+            if (QuestRuntimeBridge.GetRawButtonDown("B"))
             {
                 Submit(bButtonLine);
                 return;
             }
 
-            if (OVRInput.GetDown(OVRInput.RawButton.X))
+            if (QuestRuntimeBridge.GetRawButtonDown("X"))
             {
                 Submit(xButtonLine);
                 return;
             }
 
-            if (OVRInput.GetDown(OVRInput.RawButton.Y))
+            if (QuestRuntimeBridge.GetRawButtonDown("Y"))
             {
                 Submit(yButtonLine);
                 return;
             }
 
-            if (OVRInput.GetDown(OVRInput.RawButton.RThumbstickUp))
+            if (QuestRuntimeBridge.GetRawButtonDown("RThumbstickUp"))
             {
                 Submit(thumbstickUpLine);
                 return;
             }
 
-            if (OVRInput.GetDown(OVRInput.RawButton.RThumbstickDown))
+            if (QuestRuntimeBridge.GetRawButtonDown("RThumbstickDown"))
             {
                 Submit(thumbstickDownLine);
                 return;
             }
 
-            if (OVRInput.GetDown(OVRInput.RawButton.RThumbstickLeft))
+            if (QuestRuntimeBridge.GetRawButtonDown("RThumbstickLeft"))
             {
                 Submit(thumbstickLeftLine);
                 return;
             }
 
-            if (OVRInput.GetDown(OVRInput.RawButton.RThumbstickRight))
+            if (QuestRuntimeBridge.GetRawButtonDown("RThumbstickRight"))
             {
                 Submit(thumbstickRightLine);
             }

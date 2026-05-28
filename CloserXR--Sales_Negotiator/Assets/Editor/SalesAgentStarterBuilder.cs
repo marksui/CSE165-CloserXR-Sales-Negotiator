@@ -14,11 +14,17 @@ namespace CloserXR.SalesNegotiator.Editor
     {
         private const string MixamoFolder = "Assets/Mixamo";
         private const string AnimationFolder = "Assets/Animations";
+        private const string MaterialFolder = "Assets/Materials";
         private const string PrefabFolder = "Assets/Prefabs";
         private const string BaseModelPath = MixamoFolder + "/Ch01_nonPBR.fbx";
         private const string ControllerPath = AnimationFolder + "/SalesAgent.controller";
         private const string PrefabPath = PrefabFolder + "/SalesAgent.prefab";
         private const string SampleScenePath = "Assets/Scenes/SampleScene.unity";
+        private const string SkinMaterialPath = MaterialFolder + "/CloserXR_Skin.mat";
+        private const string ShirtMaterialPath = MaterialFolder + "/CloserXR_Shirt.mat";
+        private const string PantsMaterialPath = MaterialFolder + "/CloserXR_Pants.mat";
+        private const string SneakersMaterialPath = MaterialFolder + "/CloserXR_Sneakers.mat";
+        private const string EyelashesMaterialPath = MaterialFolder + "/CloserXR_Eyelashes.mat";
 
         private const string TalkingParameter = "IsTalking";
         private const string WalkingParameter = "IsWalking";
@@ -49,10 +55,24 @@ namespace CloserXR.SalesNegotiator.Editor
                 "OK");
         }
 
+        [MenuItem("CloserXR/Refresh Sales Agent Colors")]
+        public static void RefreshSalesAgentColors()
+        {
+            EnsureProjectFolders();
+            Dictionary<string, Material> materials = CreateFallbackMaterials();
+
+            ApplyMaterialsToPrefabAsset(materials);
+            ApplyMaterialsToSampleScene(materials);
+
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+        }
+
         private static void EnsureProjectFolders()
         {
             CreateFolderIfMissing("Assets", "Mixamo");
             CreateFolderIfMissing("Assets", "Animations");
+            CreateFolderIfMissing("Assets", "Materials");
             CreateFolderIfMissing("Assets", "Prefabs");
             CreateFolderIfMissing("Assets", "Scripts");
             CreateFolderIfMissing("Assets/Scripts", "SalesAgent");
@@ -280,6 +300,20 @@ namespace CloserXR.SalesNegotiator.Editor
 
             debugControls.AssignTarget(driver);
 
+            SalesAgentMaterialStyler materialStyler = instance.GetComponent<SalesAgentMaterialStyler>();
+            if (materialStyler == null)
+            {
+                materialStyler = instance.AddComponent<SalesAgentMaterialStyler>();
+            }
+
+            SalesAgentFaceFeatures faceFeatures = instance.GetComponent<SalesAgentFaceFeatures>();
+            if (faceFeatures == null)
+            {
+                faceFeatures = instance.AddComponent<SalesAgentFaceFeatures>();
+            }
+
+            ApplyFallbackMaterials(instance, CreateFallbackMaterials());
+
             if (instance.GetComponent<SpatialRoomMapDemo>() == null)
             {
                 instance.AddComponent<SpatialRoomMapDemo>();
@@ -329,6 +363,179 @@ namespace CloserXR.SalesNegotiator.Editor
 
             EditorSceneManager.MarkSceneDirty(instance.scene);
             EditorSceneManager.SaveScene(instance.scene);
+        }
+
+        private static Dictionary<string, Material> CreateFallbackMaterials()
+        {
+            return new Dictionary<string, Material>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["Body"] = CreateOrUpdateMaterial(SkinMaterialPath, "CloserXR_Skin", new Color(0.78f, 0.58f, 0.44f, 1f), 0.42f),
+                ["Shirt"] = CreateOrUpdateMaterial(ShirtMaterialPath, "CloserXR_Shirt", new Color(0.08f, 0.42f, 0.48f, 1f), 0.48f),
+                ["Pants"] = CreateOrUpdateMaterial(PantsMaterialPath, "CloserXR_Pants", new Color(0.12f, 0.16f, 0.18f, 1f), 0.35f),
+                ["Sneakers"] = CreateOrUpdateMaterial(SneakersMaterialPath, "CloserXR_Sneakers", new Color(0.88f, 0.89f, 0.84f, 1f), 0.55f),
+                ["Eyelashes"] = CreateOrUpdateMaterial(EyelashesMaterialPath, "CloserXR_Eyelashes", new Color(0.08f, 0.07f, 0.06f, 1f), 0.2f)
+            };
+        }
+
+        private static Material CreateOrUpdateMaterial(string path, string materialName, Color color, float smoothness)
+        {
+            Material material = AssetDatabase.LoadAssetAtPath<Material>(path);
+            Shader shader = Shader.Find("Standard")
+                ?? Shader.Find("Universal Render Pipeline/Lit")
+                ?? Shader.Find("Universal Render Pipeline/Unlit")
+                ?? Shader.Find("Unlit/Color")
+                ?? Shader.Find("Diffuse");
+
+            if (material == null)
+            {
+                material = new Material(shader);
+                AssetDatabase.CreateAsset(material, path);
+            }
+            else if (shader != null)
+            {
+                material.shader = shader;
+            }
+
+            material.name = materialName;
+            material.color = color;
+            SetMaterialColor(material, "_BaseColor", color);
+            SetMaterialColor(material, "_Color", color);
+            SetMaterialColor(material, "_EmissionColor", color);
+            SetMaterialFloat(material, "_Smoothness", smoothness);
+            SetMaterialFloat(material, "_Glossiness", smoothness);
+            SetMaterialFloat(material, "_Metallic", 0f);
+
+            EditorUtility.SetDirty(material);
+            return material;
+        }
+
+        private static void ApplyMaterialsToPrefabAsset(Dictionary<string, Material> materials)
+        {
+            if (!File.Exists(PrefabPath))
+            {
+                return;
+            }
+
+            GameObject prefabRoot = PrefabUtility.LoadPrefabContents(PrefabPath);
+            EnsureMaterialStyler(prefabRoot);
+            EnsureFaceFeatures(prefabRoot);
+            ApplyFallbackMaterials(prefabRoot, materials);
+            PrefabUtility.SaveAsPrefabAsset(prefabRoot, PrefabPath);
+            PrefabUtility.UnloadPrefabContents(prefabRoot);
+        }
+
+        private static void ApplyMaterialsToSampleScene(Dictionary<string, Material> materials)
+        {
+            if (AssetDatabase.LoadAssetAtPath<SceneAsset>(SampleScenePath) == null)
+            {
+                return;
+            }
+
+            EditorSceneManager.OpenScene(SampleScenePath);
+            GameObject existingAgent = GameObject.Find("SalesAgent");
+            if (existingAgent == null)
+            {
+                return;
+            }
+
+            EnsureMaterialStyler(existingAgent);
+            EnsureFaceFeatures(existingAgent);
+            ApplyFallbackMaterials(existingAgent, materials);
+            EditorSceneManager.MarkSceneDirty(existingAgent.scene);
+            EditorSceneManager.SaveScene(existingAgent.scene);
+        }
+
+        private static void EnsureMaterialStyler(GameObject root)
+        {
+            if (root != null && root.GetComponent<SalesAgentMaterialStyler>() == null)
+            {
+                root.AddComponent<SalesAgentMaterialStyler>();
+            }
+        }
+
+        private static void EnsureFaceFeatures(GameObject root)
+        {
+            if (root != null && root.GetComponent<SalesAgentFaceFeatures>() == null)
+            {
+                root.AddComponent<SalesAgentFaceFeatures>();
+            }
+        }
+
+        private static void ApplyFallbackMaterials(GameObject root, Dictionary<string, Material> materials)
+        {
+            if (root == null || materials == null)
+            {
+                return;
+            }
+
+            foreach (Renderer renderer in root.GetComponentsInChildren<Renderer>(true))
+            {
+                Material material = PickMaterialForRenderer(renderer.gameObject.name, materials);
+                if (material == null)
+                {
+                    continue;
+                }
+
+                Material[] rendererMaterials = renderer.sharedMaterials;
+                if (rendererMaterials == null || rendererMaterials.Length == 0)
+                {
+                    rendererMaterials = new[] { material };
+                }
+
+                for (int i = 0; i < rendererMaterials.Length; i++)
+                {
+                    rendererMaterials[i] = material;
+                }
+
+                renderer.sharedMaterials = rendererMaterials;
+                EditorUtility.SetDirty(renderer);
+            }
+        }
+
+        private static Material PickMaterialForRenderer(string rendererName, Dictionary<string, Material> materials)
+        {
+            if (rendererName.IndexOf("Eyelashes", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return materials["Eyelashes"];
+            }
+
+            if (rendererName.IndexOf("Shirt", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return materials["Shirt"];
+            }
+
+            if (rendererName.IndexOf("Pants", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return materials["Pants"];
+            }
+
+            if (rendererName.IndexOf("Sneakers", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return materials["Sneakers"];
+            }
+
+            if (rendererName.IndexOf("Body", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return materials["Body"];
+            }
+
+            return null;
+        }
+
+        private static void SetMaterialColor(Material material, string propertyName, Color color)
+        {
+            if (material.HasProperty(propertyName))
+            {
+                material.SetColor(propertyName, color);
+            }
+        }
+
+        private static void SetMaterialFloat(Material material, string propertyName, float value)
+        {
+            if (material.HasProperty(propertyName))
+            {
+                material.SetFloat(propertyName, value);
+            }
         }
 
         private static IEnumerable<string> FindMixamoFbxPaths()

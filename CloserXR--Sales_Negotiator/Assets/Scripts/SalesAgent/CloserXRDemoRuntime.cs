@@ -41,6 +41,8 @@ namespace CloserXR.SalesNegotiator
             QuestControllerConversationInput questInput = GetOrAdd<QuestControllerConversationInput>();
             SalesConversationDebugHud hud = GetOrAdd<SalesConversationDebugHud>();
             SalesAgentVRStatusPanel vrStatusPanel = enableVrStatusPanel ? GetOrAdd<SalesAgentVRStatusPanel>() : null;
+            SalesAgentMaterialStyler materialStyler = GetOrAdd<SalesAgentMaterialStyler>();
+            SalesAgentFaceFeatures faceFeatures = GetOrAdd<SalesAgentFaceFeatures>();
 
             pacer.Assign(animator, mainCamera != null ? mainCamera.transform : null);
             pacer.AssignRoomMap(roomMap);
@@ -49,6 +51,8 @@ namespace CloserXR.SalesNegotiator
             questInput.Assign(conversation);
             hud.Assign(conversation, speechInput);
             vrStatusPanel?.Assign(conversation, speechInput, gemini, roomMap, mainCamera != null ? mainCamera.transform : null);
+            materialStyler.ApplyNow();
+            faceFeatures.EnsureFace();
 
             if (enablePassthrough)
             {
@@ -70,28 +74,7 @@ namespace CloserXR.SalesNegotiator
         private static void EnsurePassthrough(Camera mainCamera)
         {
             GameObject target = mainCamera != null ? mainCamera.gameObject : new GameObject("CloserXR Camera Runtime");
-
-            OVRManager manager = OVRManager.instance != null
-                ? OVRManager.instance
-                : target.GetComponent<OVRManager>();
-
-            if (manager == null)
-            {
-                manager = target.AddComponent<OVRManager>();
-            }
-
-            manager.isInsightPassthroughEnabled = true;
-            manager.shouldBoundaryVisibilityBeSuppressed = true;
-
-            OVRPassthroughLayer passthroughLayer = Object.FindObjectOfType<OVRPassthroughLayer>();
-            if (passthroughLayer == null)
-            {
-                passthroughLayer = target.AddComponent<OVRPassthroughLayer>();
-            }
-
-            passthroughLayer.hidden = false;
-            passthroughLayer.textureOpacity = 1f;
-            passthroughLayer.edgeRenderingEnabled = false;
+            QuestRuntimeBridge.EnsurePassthrough(target);
         }
 
         private void EnsureSpatialAnchor()
@@ -101,10 +84,7 @@ namespace CloserXR.SalesNegotiator
                 return;
             }
 
-            if (GetComponent<OVRSpatialAnchor>() == null)
-            {
-                gameObject.AddComponent<OVRSpatialAnchor>();
-            }
+            QuestRuntimeBridge.EnsureSpatialAnchor(gameObject);
         }
     }
 }

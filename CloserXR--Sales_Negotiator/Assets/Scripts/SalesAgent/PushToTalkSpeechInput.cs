@@ -32,12 +32,10 @@ namespace CloserXR.SalesNegotiator
         private void Update()
         {
             bool questStartPressed = useQuestTrigger &&
-                                     (OVRInput.GetDown(OVRInput.RawButton.LIndexTrigger) ||
-                                      OVRInput.GetDown(OVRInput.RawButton.RIndexTrigger));
+                                     QuestRuntimeBridge.GetPrimaryIndexTriggerDown();
 
             bool questStopPressed = useQuestTrigger &&
-                                    (OVRInput.GetUp(OVRInput.RawButton.LIndexTrigger) ||
-                                     OVRInput.GetUp(OVRInput.RawButton.RIndexTrigger));
+                                    QuestRuntimeBridge.GetPrimaryIndexTriggerUp();
 
             bool startPressed = Input.GetKeyDown(editorRecordKey) || questStartPressed;
             bool stopPressed = Input.GetKeyUp(editorRecordKey) || questStopPressed;

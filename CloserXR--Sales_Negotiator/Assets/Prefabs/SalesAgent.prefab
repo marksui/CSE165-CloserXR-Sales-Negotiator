@@ -468,7 +468,7 @@ SkinnedMeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: -3502645084136841012, guid: 92fba512c22a9c243abfacc39fae1b6a, type: 3}
+  - {fileID: 2100000, guid: 93a483a95d0501140b93c20d0ea7e105, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -746,7 +746,7 @@ SkinnedMeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: -3502645084136841012, guid: 92fba512c22a9c243abfacc39fae1b6a, type: 3}
+  - {fileID: 2100000, guid: ffe461156044e704fa61d42d631cab1c, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -1328,7 +1328,7 @@ SkinnedMeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: -3502645084136841012, guid: 92fba512c22a9c243abfacc39fae1b6a, type: 3}
+  - {fileID: 2100000, guid: a649f1484b97f8842b445a46666ae72f, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -1577,6 +1577,8 @@ GameObject:
   - component: {fileID: 4622251673800101888}
   - component: {fileID: 2349598333440088064}
   - component: {fileID: 8797318254058005511}
+  - component: {fileID: 8689073668079974566}
+  - component: {fileID: 3705423371228824511}
   m_Layer: 0
   m_Name: SalesAgent
   m_TagString: Untagged
@@ -1789,6 +1791,43 @@ MonoBehaviour:
   enableRoomOutlineDemo: 1
   enableVrStatusPanel: 1
   repositionDefaultCameraForDemo: 1
+--- !u!114 &8689073668079974566
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6451866310721777581}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2f450df6c89943349ae04c21a0d4f4cf, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  applyOnAwake: 1
+  skinColor: {r: 0.78, g: 0.58, b: 0.44, a: 1}
+  shirtColor: {r: 0.08, g: 0.42, b: 0.48, a: 1}
+  pantsColor: {r: 0.12, g: 0.16, b: 0.18, a: 1}
+  sneakersColor: {r: 0.88, g: 0.89, b: 0.84, a: 1}
+  eyelashColor: {r: 0.08, g: 0.07, b: 0.06, a: 1}
+--- !u!114 &3705423371228824511
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6451866310721777581}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7e1783d408724102a1d0da6f812eaafe, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  showFeatures: 1
+  featureScale: 1
+  eyeWhiteColor: {r: 0.96, g: 0.95, b: 0.9, a: 1}
+  pupilColor: {r: 0.045, g: 0.04, b: 0.035, a: 1}
+  eyebrowColor: {r: 0.08, g: 0.07, b: 0.06, a: 1}
+  mouthColor: {r: 0.5, g: 0.18, b: 0.16, a: 1}
+  noseColor: {r: 0.68, g: 0.46, b: 0.36, a: 1}
 --- !u!1 &6631409450490591012
 GameObject:
   m_ObjectHideFlags: 0
@@ -2381,7 +2420,7 @@ SkinnedMeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: -3502645084136841012, guid: 92fba512c22a9c243abfacc39fae1b6a, type: 3}
+  - {fileID: 2100000, guid: 3b16601833707be4395760e502872636, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -2514,7 +2553,7 @@ SkinnedMeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 4989172880197403051, guid: 92fba512c22a9c243abfacc39fae1b6a, type: 3}
+  - {fileID: 2100000, guid: 989fef26d7d350d4b8c5d45baa692bcd, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
