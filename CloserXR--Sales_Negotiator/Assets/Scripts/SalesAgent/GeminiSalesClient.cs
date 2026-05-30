@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using System.Text;
 using UnityEngine;
 using UnityEngine.Networking;
@@ -19,11 +20,21 @@ namespace CloserXR.SalesNegotiator
 
         private const string EndpointTemplate =
             "https://generativelanguage.googleapis.com/v1beta/models/{0}:generateContent";
+        private const string StreamingAssetsKeyFileName = "gemini_key.txt";
 
         private readonly List<GeminiContent> _history = new List<GeminiContent>();
+        private string streamingAssetsApiKey;
+        private bool streamingAssetsKeyLoadAttempted;
+        private bool streamingAssetsKeyLoading;
 
         public bool HasApiKey => !string.IsNullOrWhiteSpace(GetApiKey());
+        public bool CanAttemptRequest => HasApiKey || streamingAssetsKeyLoading || !streamingAssetsKeyLoadAttempted;
         public string Model => model;
+
+        private void Awake()
+        {
+            StartCoroutine(EnsureStreamingAssetsKeyLoaded());
+        }
 
         // Seed history with the opening pitch so Gemini knows what was already said.
         public void InitHistory(string systemPrompt, string openingLine)
@@ -124,7 +135,7 @@ namespace CloserXR.SalesNegotiator
                 request,
                 response =>
                 {
-                    // Store a text placeholder in history — we send audio to Gemini but
+                    // Store a text placeholder in history; we send audio to Gemini but
                     // history only needs text for subsequent context.
                     _history.Add(new GeminiContent
                     {
@@ -170,6 +181,8 @@ namespace CloserXR.SalesNegotiator
 
         private IEnumerator SendRequest(GeminiRequest request, Action<string> onSuccess, Action<string> onError)
         {
+            yield return EnsureStreamingAssetsKeyLoaded();
+
             string apiKey = GetApiKey();
             if (string.IsNullOrWhiteSpace(apiKey))
             {
@@ -226,19 +239,78 @@ namespace CloserXR.SalesNegotiator
                 return envKey.Trim();
             }
 
-            return ReadKeyFromStreamingAssets();
+            if (!string.IsNullOrWhiteSpace(streamingAssetsApiKey))
+            {
+                return streamingAssetsApiKey;
+            }
+
+            return streamingAssetsKeyLoadAttempted ? null : TryReadKeyFromPlainFile();
         }
 
-        private static string ReadKeyFromStreamingAssets()
+        private IEnumerator EnsureStreamingAssetsKeyLoaded()
         {
-            string path = System.IO.Path.Combine(Application.streamingAssetsPath, "gemini_key.txt");
-            if (!System.IO.File.Exists(path))
+            while (streamingAssetsKeyLoading)
+            {
+                yield return null;
+            }
+
+            if (streamingAssetsKeyLoadAttempted ||
+                !string.IsNullOrWhiteSpace(apiKeyOverride) ||
+                !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable(apiKeyEnvironmentVariable)))
+            {
+                yield break;
+            }
+
+            streamingAssetsKeyLoadAttempted = true;
+            streamingAssetsKeyLoading = true;
+            string path = Path.Combine(Application.streamingAssetsPath, StreamingAssetsKeyFileName);
+
+            if (RequiresWebRequestForStreamingAssets(path))
+            {
+                using (UnityWebRequest request = UnityWebRequest.Get(path))
+                {
+                    yield return request.SendWebRequest();
+                    if (request.result == UnityWebRequest.Result.Success)
+                    {
+                        streamingAssetsApiKey = NormalizeApiKey(request.downloadHandler.text);
+                    }
+                }
+
+                streamingAssetsKeyLoading = false;
+                yield break;
+            }
+
+            streamingAssetsApiKey = TryReadKeyFromPlainFile();
+            streamingAssetsKeyLoading = false;
+        }
+
+        private static string TryReadKeyFromPlainFile()
+        {
+            string path = Path.Combine(Application.streamingAssetsPath, StreamingAssetsKeyFileName);
+            if (!File.Exists(path))
             {
                 return null;
             }
 
-            string contents = System.IO.File.ReadAllText(path).Trim();
-            return contents.StartsWith("YOUR_GEMINI", StringComparison.OrdinalIgnoreCase) ? null : contents;
+            return NormalizeApiKey(File.ReadAllText(path));
+        }
+
+        private static bool RequiresWebRequestForStreamingAssets(string path)
+        {
+            return Application.platform == RuntimePlatform.Android ||
+                   path.IndexOf("://", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                   path.StartsWith("jar:", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static string NormalizeApiKey(string contents)
+        {
+            if (string.IsNullOrWhiteSpace(contents))
+            {
+                return null;
+            }
+
+            string key = contents.Trim();
+            return key.StartsWith("YOUR_GEMINI", StringComparison.OrdinalIgnoreCase) ? null : key;
         }
 
         private static string ExtractText(GeminiResponse response)

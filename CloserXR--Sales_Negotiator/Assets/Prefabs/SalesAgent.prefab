@@ -1768,7 +1768,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 369677f252ea47bc89e30f7e810aa85b, type: 3}
   m_Name:
   m_EditorClassIdentifier:
-  showPanel: 0
+  showPanel: 1
   conversationManager: {fileID: 0}
   speechInput: {fileID: 0}
   geminiClient: {fileID: 0}
@@ -1796,7 +1796,7 @@ MonoBehaviour:
   enableSpatialAnchorOnDevice: 1
   enableRoomOutlineDemo: 1
   useProject3HeadTrackedView: 1
-  enableVrStatusPanel: 0
+  enableVrStatusPanel: 1
   enableRoomCameraControls: 1
   repositionDefaultCameraForDemo: 1
 --- !u!114 &8689073668079974566

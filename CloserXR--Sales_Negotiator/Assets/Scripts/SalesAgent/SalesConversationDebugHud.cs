@@ -9,9 +9,9 @@ namespace CloserXR.SalesNegotiator
     {
         [SerializeField] private SalesConversationManager conversationManager;
         [SerializeField] private PushToTalkSpeechInput speechInput;
-        [SerializeField] private bool showHud = true;
+        [SerializeField] private bool showHud;
         [SerializeField] private bool showCanvasHud;
-        [SerializeField] private bool showLegacyOnGui = true;
+        [SerializeField] private bool showLegacyOnGui;
         [SerializeField] private Vector2 screenMargin = new Vector2(12f, 12f);
         [SerializeField] private Vector2 panelSize = new Vector2(352f, 232f);
 

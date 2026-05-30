@@ -6,7 +6,7 @@ namespace CloserXR.SalesNegotiator
     [DisallowMultipleComponent]
     public sealed class SalesAgentVRStatusPanel : MonoBehaviour
     {
-        [SerializeField] private bool showPanel;
+        [SerializeField] private bool showPanel = true;
         [SerializeField] private SalesConversationManager conversationManager;
         [SerializeField] private PushToTalkSpeechInput speechInput;
         [SerializeField] private GeminiSalesClient geminiClient;
@@ -198,9 +198,9 @@ namespace CloserXR.SalesNegotiator
                 statusRail.color = railColor;
             }
 
-            // Pulse a dot indicator while the mic is hot so it's obvious in the headset.
+            // Pulse a recording indicator while the mic is hot so it is obvious in the headset.
             string micStatus = recording
-                ? (Mathf.Sin(Time.time * 8f) > 0f ? "● REC" : "  REC")
+                ? (Mathf.Sin(Time.time * 8f) > 0f ? "* REC" : "  REC")
                 : "Idle";
             string geminiStatus = hasGeminiKey ? "Connected" : "Local fallback";
             string roomStatus = roomMap != null && roomMap.HasRoomBounds ? roomMap.BoundarySourceLabel : "Searching";

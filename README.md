@@ -32,10 +32,10 @@ Unity version:
 - Animator state machine for talking, pacing, pointing, arguing, dismissing, and celebrating
 - Basic spatial anchor support on device builds
 - Proximity-aware pacing that stays inside the visible room bounds
-- VR status panel with red recording indicator and live Speaking/Ready/Gemini status
+- VR status panel with recording indicator and live Speaking/Ready/Gemini status
 - Push-to-talk microphone input (WAV sent directly to Gemini for transcription + response)
 - Gemini REST API integration with multi-turn conversation history (up to 10 turns)
-- Android TTS voice output — the agent speaks aloud on device with procedural lip variation
+- Android TTS voice output - the agent speaks aloud on device with procedural lip variation
 - Local canned dialogue fallback when no API key is available
 - Life insurance role-play lines for premiums, coverage, term-vs-whole questions, family protection, and closing
 
@@ -69,13 +69,13 @@ Without a Gemini key, use the preset Quest inputs:
 
 The API key is never committed to git. Three sources are checked in priority order:
 
-1. **Inspector override** — paste directly into `GeminiSalesClient` on the prefab (quickest for a one-off test, clear it before committing)
-2. **Environment variable** — recommended for Mac development
-3. **StreamingAssets file** — required for Quest device builds (Android cannot read env vars)
+1. **Inspector override** - paste directly into `GeminiSalesClient` on the prefab (quickest for a one-off test, clear it before committing)
+2. **Environment variable** - recommended for desktop development
+3. **StreamingAssets file** - required for Quest device builds (Android cannot read env vars)
 
 Without any key, the demo runs on local canned dialogue automatically.
 
-### Mac Development (env var)
+### Desktop Development (env var)
 
 ```bash
 cp .env.template .env
@@ -83,6 +83,12 @@ cp .env.template .env
 source .env
 # now open Unity from this same terminal session
 open -a "Unity Hub"
+```
+
+On Windows PowerShell, set the key before opening Unity:
+
+```powershell
+$env:GEMINI_API_KEY="your_gemini_api_key_here"
 ```
 
 The `.env` file is gitignored and stays on your machine only.
@@ -95,7 +101,7 @@ cp CloserXR--Sales_Negotiator/Assets/StreamingAssets/gemini_key.txt.template \
 # open gemini_key.txt and replace the placeholder with your real key
 ```
 
-`gemini_key.txt` is gitignored. Build the APK normally — the key is bundled into the build but never committed.
+`gemini_key.txt` is gitignored. Build the APK normally - the key is bundled into the build but never committed.
 
 ### Getting a Gemini API Key
 
@@ -120,9 +126,9 @@ Visit [Google AI Studio](https://aistudio.google.com/app/apikey) and create a fr
 - `Assets/Prefabs/SalesAgent.prefab`
 - `Assets/Animations/SalesAgent.controller`
 - `Assets/Scripts/SalesAgent/`
-- `Assets/Scripts/SalesAgent/SalesAgentTTS.cs` — Android TTS wrapper with procedural lip variation
-- `Assets/Scripts/SalesAgent/GeminiSalesClient.cs` — Gemini REST client with multi-turn history
-- `Assets/Scripts/SalesAgent/SalesConversationManager.cs` — central conversation hub
+- `Assets/Scripts/SalesAgent/SalesAgentTTS.cs` - Android TTS wrapper with procedural lip variation
+- `Assets/Scripts/SalesAgent/GeminiSalesClient.cs` - Gemini REST client with multi-turn history
+- `Assets/Scripts/SalesAgent/SalesConversationManager.cs` - central conversation hub
 - `Assets/Scripts/SalesAgent/SpatialRoomMapDemo.cs`
 - `Assets/Scripts/SalesAgent/SalesAgentVRStatusPanel.cs`
 - `Assets/Mixamo/`
@@ -131,16 +137,16 @@ Visit [Google AI Studio](https://aistudio.google.com/app/apikey) and create a fr
 
 ```
 User speaks (trigger)
-  └─► PushToTalkSpeechInput records WAV
-        └─► GeminiSalesClient.GenerateFromAudio()
-              ├─ sends WAV + conversation history to Gemini
-              └─ receives response text
-                    ├─► SalesIntentClassifier → intent
-                    ├─► SalesDialogueGestureRouter → gesture (0.2 s delay)
-                    ├─► SalesAgentPacer → distance update
-                    └─► SalesAgentTTS.Speak()
-                          ├─ Android TTS speaks the text aloud
-                          └─ VariateTalkingSpeed coroutine → organic mouth movement
+  -> PushToTalkSpeechInput records WAV
+      -> GeminiSalesClient.GenerateFromAudio()
+          -> sends WAV + conversation history to Gemini
+          -> receives response text
+              -> SalesIntentClassifier -> intent
+              -> SalesDialogueGestureRouter -> gesture (0.2 s delay)
+              -> SalesAgentPacer -> distance update
+              -> SalesAgentTTS.Speak()
+                  -> Android TTS speaks the text aloud
+                  -> VariateTalkingSpeed coroutine -> organic mouth movement
 ```
 
 Conversation history is maintained across up to 10 turns so Gemini remembers what was already said. The opening pitch is seeded into history as the first model turn.
@@ -150,7 +156,7 @@ Conversation history is maintained across up to 10 turns so Gemini remembers wha
 - Passthrough: bootstrapped at runtime through Meta XR components
 - Spatial anchors: added on Android device builds
 - Room mapping demo: `SpatialRoomMapDemo` reads Quest Guardian play-area geometry when available
-- VR UI: `SalesAgentVRStatusPanel` shows Quest controls, Gemini mode, mic state (pulsing red dot while recording), room source, and speaking/ready status
+- VR UI: `SalesAgentVRStatusPanel` shows Quest controls, Gemini mode, mic state, room source, and speaking/ready status
 - Conversation-aware gestures: user and agent text are classified into price pushback, rejection, agreement, uncertainty, and closing intents; gestures are delayed 0.2 s to sync with TTS startup
 - Spatial proximity: the agent backs off for objections and moves closer when closing the sale
 - Voice output: `SalesAgentTTS` drives Android TTS on device; `SetTalkingSpeed()` varies animator speed procedurally for lip rhythm

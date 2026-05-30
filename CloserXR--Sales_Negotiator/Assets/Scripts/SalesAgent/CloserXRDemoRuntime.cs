@@ -10,7 +10,7 @@ namespace CloserXR.SalesNegotiator
         [SerializeField] private bool enableSpatialAnchorOnDevice = true;
         [SerializeField] private bool enableRoomOutlineDemo = true;
         [SerializeField] private bool useProject3HeadTrackedView = true;
-        [SerializeField] private bool enableVrStatusPanel;
+        [SerializeField] private bool enableVrStatusPanel = true;
         [SerializeField] private bool enableRoomCameraControls = true;
         [SerializeField] private bool repositionDefaultCameraForDemo = true;
 

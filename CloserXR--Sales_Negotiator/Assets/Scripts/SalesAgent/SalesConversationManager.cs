@@ -83,7 +83,7 @@ namespace CloserXR.SalesNegotiator
             gestureRouter?.RouteUserText(LastUserText);
             pacer?.SetIntent(userIntent);
 
-            if (geminiClient != null && geminiClient.HasApiKey)
+            if (geminiClient != null && geminiClient.CanAttemptRequest)
             {
                 StartCoroutine(GenerateGeminiTextReply(LastUserText));
                 return;
@@ -99,7 +99,7 @@ namespace CloserXR.SalesNegotiator
                 return;
             }
 
-            if (geminiClient == null || !geminiClient.HasApiKey)
+            if (geminiClient == null || !geminiClient.CanAttemptRequest)
             {
                 Status = "Audio recorded. Add GEMINI_API_KEY to let Gemini understand microphone input.";
                 DeliverAgentResponse(BuildLocalReply(SalesIntent.Neutral, LastUserText));

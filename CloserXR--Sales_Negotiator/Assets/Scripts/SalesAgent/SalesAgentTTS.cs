@@ -176,7 +176,7 @@ namespace CloserXR.SalesNegotiator
                 _callback = callback;
             }
 
-            // Called on the Java thread — only set a volatile bool, no Unity API calls.
+            // Called on the Java thread; only set a volatile bool, no Unity API calls.
             public void onInit(int status) => _callback?.Invoke(status);
         }
 #endif
