@@ -59,17 +59,12 @@ namespace CloserXR.SalesNegotiator
 
         public static Camera EnsureProject3HeadTrackedView(Camera fallbackCamera)
         {
-            if (Application.isEditor || Application.platform != RuntimePlatform.Android)
-            {
-                return fallbackCamera;
-            }
-
             ovrCameraRigType = ovrCameraRigType ?? FindType("OVRCameraRig");
             if (ovrCameraRigType == null)
             {
                 if (!warnedMissingCameraRig)
                 {
-                    Debug.LogWarning("OVRCameraRig was not found, so CloserXR kept the default Main Camera.");
+                    Debug.LogWarning("OVRCameraRig was not found. CloserXR could not create the required OVR camera rig.");
                     warnedMissingCameraRig = true;
                 }
 
@@ -100,6 +95,7 @@ namespace CloserXR.SalesNegotiator
             Camera headCamera = centerEye.GetComponent<Camera>() ?? centerEye.gameObject.AddComponent<Camera>();
             ConfigureProject3CenterEyeCamera(headCamera, fallbackCamera);
             DisableFallbackCamera(fallbackCamera, headCamera);
+            DisableNonOvrSceneCameras(headCamera);
             return headCamera;
         }
 
@@ -199,6 +195,31 @@ namespace CloserXR.SalesNegotiator
             if (editorController != null)
             {
                 editorController.enabled = false;
+            }
+        }
+
+        private static void DisableNonOvrSceneCameras(Camera headCamera)
+        {
+            foreach (Camera camera in UnityEngine.Object.FindObjectsOfType<Camera>())
+            {
+                if (camera == null || camera == headCamera)
+                {
+                    continue;
+                }
+
+                if (camera.transform == headCamera.transform || camera.transform.IsChildOf(headCamera.transform.root))
+                {
+                    continue;
+                }
+
+                camera.tag = "Untagged";
+                camera.enabled = false;
+
+                AudioListener listener = camera.GetComponent<AudioListener>();
+                if (listener != null)
+                {
+                    listener.enabled = false;
+                }
             }
         }
 

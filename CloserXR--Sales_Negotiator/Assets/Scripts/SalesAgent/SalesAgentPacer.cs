@@ -15,6 +15,7 @@ namespace CloserXR.SalesNegotiator
         [SerializeField] private float turnSpeed = 8f;
         [SerializeField] private bool respectRoomBounds = true;
         [SerializeField] private float roomWallPadding = 0.35f;
+        [SerializeField] private bool keepAgentWorldAnchored = true;
 
         private SpatialRoomMapDemo roomMap;
 
@@ -22,6 +23,9 @@ namespace CloserXR.SalesNegotiator
         private float desiredWidth;
         private float paceTimer;
         private bool active;
+        private Vector3 worldAnchorPosition;
+        private Vector3 worldAnchorRight;
+        private bool worldAnchorCached;
 
         private void Awake()
         {
@@ -31,6 +35,7 @@ namespace CloserXR.SalesNegotiator
             }
 
             desiredDistance = neutralDistance;
+            CacheWorldAnchor();
         }
 
         public void Assign(SalesAgentAnimator animator, Transform head)
@@ -88,6 +93,13 @@ namespace CloserXR.SalesNegotiator
             }
 
             paceTimer += Time.deltaTime;
+
+            if (keepAgentWorldAnchored)
+            {
+                UpdateAnchoredPacing();
+                return;
+            }
+
             Vector3 forward = Vector3.ProjectOnPlane(userHead.forward, Vector3.up).normalized;
             if (forward.sqrMagnitude < 0.01f)
             {
@@ -124,6 +136,60 @@ namespace CloserXR.SalesNegotiator
 
             bool isMoving = active && Vector3.Distance(before, transform.position) > 0.002f;
             agentAnimator?.SetWalking(isMoving);
+        }
+
+        private void UpdateAnchoredPacing()
+        {
+            if (!worldAnchorCached)
+            {
+                CacheWorldAnchor();
+            }
+
+            float sideOffset = active ? Mathf.Sin(paceTimer * 1.35f) * desiredWidth : 0f;
+            Vector3 target = worldAnchorPosition + worldAnchorRight * sideOffset;
+
+            if (respectRoomBounds)
+            {
+                if (roomMap == null)
+                {
+                    roomMap = FindObjectOfType<SpatialRoomMapDemo>();
+                }
+
+                if (roomMap != null)
+                {
+                    target = roomMap.ClampToRoom(target, roomWallPadding);
+                    target.y = worldAnchorPosition.y;
+                }
+            }
+
+            Vector3 before = transform.position;
+            transform.position = Vector3.MoveTowards(transform.position, target, moveSpeed * Time.deltaTime);
+            FaceUser();
+
+            bool isMoving = active && Vector3.Distance(before, transform.position) > 0.002f;
+            agentAnimator?.SetWalking(isMoving);
+        }
+
+        private void FaceUser()
+        {
+            Vector3 lookDirection = Vector3.ProjectOnPlane(userHead.position - transform.position, Vector3.up);
+            if (lookDirection.sqrMagnitude > 0.01f)
+            {
+                Quaternion targetRotation = Quaternion.LookRotation(lookDirection.normalized, Vector3.up);
+                transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, turnSpeed * Time.deltaTime);
+            }
+        }
+
+        private void CacheWorldAnchor()
+        {
+            worldAnchorPosition = transform.position;
+            worldAnchorRight = Vector3.ProjectOnPlane(transform.right, Vector3.up).normalized;
+            if (worldAnchorRight.sqrMagnitude < 0.01f)
+            {
+                worldAnchorRight = Vector3.right;
+            }
+
+            worldAnchorCached = true;
         }
     }
 }
