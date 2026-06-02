@@ -198,10 +198,19 @@ namespace CloserXR.SalesNegotiator
                 statusRail.color = railColor;
             }
 
-            // Pulse a recording indicator while the mic is hot so it is obvious in the headset.
-            string micStatus = recording
-                ? (Mathf.Sin(Time.time * 8f) > 0f ? "* REC" : "  REC")
-                : "Idle";
+            bool listening = speechInput != null && speechInput.IsListening;
+            bool muted     = speechInput != null && speechInput.IsMuted;
+            string micStatus;
+            if (recording)
+                micStatus = Mathf.Sin(Time.time * 8f) > 0f ? "● REC" : "  REC";
+            else if (muted)
+                micStatus = "Muted";
+            else if (listening)
+                micStatus = Mathf.Sin(Time.time * 3f) > 0f ? "◌ Listening" : "  Listening";
+            else
+                micStatus = speechInput != null && speechInput.Mode == SpeechInputMode.PushToTalk
+                    ? "Hold trigger"
+                    : "Idle";
             string geminiStatus = hasGeminiKey ? "Connected" : "Local fallback";
             string roomStatus = roomMap != null && roomMap.HasRoomBounds ? roomMap.BoundarySourceLabel : "Searching";
 

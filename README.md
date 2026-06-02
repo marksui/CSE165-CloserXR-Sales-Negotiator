@@ -32,8 +32,13 @@ Unity version:
 - Animator state machine for talking, pacing, pointing, arguing, dismissing, and celebrating
 - Basic spatial anchor support on device builds
 - Proximity-aware pacing that stays inside the visible room bounds
-- VR status panel with recording indicator and live Speaking/Ready/Gemini status
-- Push-to-talk microphone input (WAV sent directly to Gemini for transcription + response)
+- VR status panel with live mic state (recording / listening / muted), speaking status, and Gemini connection
+- Three speech input modes selectable in the Inspector on `PushToTalkSpeechInput`:
+  - **AutoVAD** (default) — mic always open; amplitude threshold starts capture; 1.2 s silence auto-submits
+  - **AndroidSpeechRecognizer** — Android STT returns text directly, lower latency (~1.5–2.5 s); falls back to AutoVAD in editor
+  - **PushToTalk** — hold trigger / Space to record, release to submit
+- Trigger / Space works as a force-start / force-submit override in all auto modes
+- Mic muted automatically while agent TTS is playing (0.5 s tail) to prevent echo pickup
 - Gemini REST API integration with multi-turn conversation history (up to 10 turns)
 - Android TTS voice output - the agent speaks aloud on device with procedural lip variation
 - Local canned dialogue fallback when no API key is available
@@ -45,11 +50,11 @@ Unity version:
 2. Open `Assets/Scenes/SampleScene.unity`.
 3. Connect a Meta Quest 2.
 4. Build and run the scene to the headset.
-5. Use the Quest controller inputs below to run the sales negotiation.
+5. Just speak — the mic listens automatically in the default AutoVAD mode.
 
-The floating VR panel shows the available controls, Gemini/microphone/room status, and the latest user and agent lines.
+The floating VR panel shows mic state (`Listening` / `● REC` / `Muted`), Gemini connection, room source, and the latest dialogue exchange.
 
-Without a Gemini key, use the preset Quest inputs:
+Without a Gemini key, or as quick shortcuts, use the preset Quest inputs:
 
 - `A`: ask what kind of life insurance this is
 - `B`: object to the premium
@@ -109,8 +114,12 @@ Visit [Google AI Studio](https://aistudio.google.com/app/apikey) and create a fr
 
 ## Controls
 
-- Quest index trigger: hold to record microphone input on Meta Quest 2
-- Quest headset movement: controls the player view/head direction
+### Speaking (primary)
+In the default AutoVAD mode, just speak naturally — the mic detects your voice and submits automatically when you pause. The panel shows `◌ Listening` when waiting and `● REC` while capturing.
+
+The trigger (or Space in editor) works as a manual override in any mode: press to force-start, release to force-submit immediately without waiting for silence.
+
+### Preset buttons (shortcuts / no Gemini key)
 - `A`: ask what kind of life insurance this is
 - `B`: object to the premium
 - `X`: ask how it protects your family
@@ -120,15 +129,30 @@ Visit [Google AI Studio](https://aistudio.google.com/app/apikey) and create a fr
 - Right thumbstick left: ask term vs whole life
 - Right thumbstick right: say maybe / think about it
 
+### Changing speech input mode
+Select the `SalesAgent` object in the scene (or open `Assets/Prefabs/SalesAgent.prefab`), find the `PushToTalkSpeechInput` component, and set **Mode** in the Inspector:
+
+| Mode | Description |
+|---|---|
+| `AutoVAD` | Amplitude-triggered, silence auto-submits WAV to Gemini (~3–5 s latency) |
+| `AndroidSpeechRecognizer` | Android STT → text → Gemini (~1.5–2.5 s latency), device only |
+| `PushToTalk` | Manual hold-to-record |
+
+**AutoVAD tuning knobs (Inspector):**
+- `Vad Threshold` — raise if background noise triggers false starts (default 0.02)
+- `Silence Seconds` — how long silence waits before submitting (default 1.2 s)
+- `Post Agent Mute Seconds` — silence after agent TTS before listening resumes (default 0.5 s)
+
 ## Important Files
 
 - `Assets/Scenes/SampleScene.unity`
 - `Assets/Prefabs/SalesAgent.prefab`
 - `Assets/Animations/SalesAgent.controller`
 - `Assets/Scripts/SalesAgent/`
-- `Assets/Scripts/SalesAgent/SalesAgentTTS.cs` - Android TTS wrapper with procedural lip variation
-- `Assets/Scripts/SalesAgent/GeminiSalesClient.cs` - Gemini REST client with multi-turn history
-- `Assets/Scripts/SalesAgent/SalesConversationManager.cs` - central conversation hub
+- `Assets/Scripts/SalesAgent/PushToTalkSpeechInput.cs` — AutoVAD / AndroidSTT / PTT with feature flag
+- `Assets/Scripts/SalesAgent/SalesAgentTTS.cs` — Android TTS wrapper with procedural lip variation
+- `Assets/Scripts/SalesAgent/GeminiSalesClient.cs` — Gemini REST client with multi-turn history
+- `Assets/Scripts/SalesAgent/SalesConversationManager.cs` — central conversation hub
 - `Assets/Scripts/SalesAgent/SpatialRoomMapDemo.cs`
 - `Assets/Scripts/SalesAgent/SalesAgentVRStatusPanel.cs`
 - `Assets/Mixamo/`
@@ -136,17 +160,23 @@ Visit [Google AI Studio](https://aistudio.google.com/app/apikey) and create a fr
 ## Architecture: LLM Pipeline
 
 ```
-User speaks (trigger)
-  -> PushToTalkSpeechInput records WAV
-      -> GeminiSalesClient.GenerateFromAudio()
-          -> sends WAV + conversation history to Gemini
-          -> receives response text
-              -> SalesIntentClassifier -> intent
-              -> SalesDialogueGestureRouter -> gesture (0.2 s delay)
-              -> SalesAgentPacer -> distance update
-              -> SalesAgentTTS.Speak()
-                  -> Android TTS speaks the text aloud
-                  -> VariateTalkingSpeed coroutine -> organic mouth movement
+User speaks naturally
+  └─► PushToTalkSpeechInput
+        ├─ AutoVAD: amplitude → loop buffer → silence timeout → WAV
+        │     └─► GeminiSalesClient.GenerateFromAudio()    (~3–5 s)
+        │               sends WAV + history → receives response text
+        └─ AndroidSpeechRecognizer: Android STT → text
+              └─► GeminiSalesClient.GenerateFromText()     (~1.5–2.5 s)
+                          sends text + history → receives response text
+
+  response text
+    ├─► SalesIntentClassifier  → intent enum
+    ├─► SalesDialogueGestureRouter → gesture trigger (0.2 s delay)
+    ├─► SalesAgentPacer        → proximity distance update
+    └─► SalesAgentTTS.Speak()
+          ├─ Android TTS speaks aloud on device
+          └─ VariateTalkingSpeed coroutine → organic mouth movement
+             (mic automatically muted while agent speaks + 0.5 s tail)
 ```
 
 Conversation history is maintained across up to 10 turns so Gemini remembers what was already said. The opening pitch is seeded into history as the first model turn.
@@ -156,7 +186,8 @@ Conversation history is maintained across up to 10 turns so Gemini remembers wha
 - Passthrough: bootstrapped at runtime through Meta XR components
 - Spatial anchors: added on Android device builds
 - Room mapping demo: `SpatialRoomMapDemo` reads Quest Guardian play-area geometry when available
-- VR UI: `SalesAgentVRStatusPanel` shows Quest controls, Gemini mode, mic state, room source, and speaking/ready status
-- Conversation-aware gestures: user and agent text are classified into price pushback, rejection, agreement, uncertainty, and closing intents; gestures are delayed 0.2 s to sync with TTS startup
-- Spatial proximity: the agent backs off for objections and moves closer when closing the sale
+- VR UI: `SalesAgentVRStatusPanel` shows mic state (pulsing `● REC`, `◌ Listening`, `Muted`), Gemini mode, room source, and speaking/ready status
+- Conversation-aware gestures: user and agent text classified into 5 intents; gestures delayed 0.2 s to sync with TTS startup
+- Spatial proximity: the agent backs off for objections and moves closer when closing
 - Voice output: `SalesAgentTTS` drives Android TTS on device; `SetTalkingSpeed()` varies animator speed procedurally for lip rhythm
+- Auto speech input: `PushToTalkSpeechInput` supports AutoVAD, AndroidSpeechRecognizer, and PushToTalk — switchable via Inspector `Mode` field with no code changes

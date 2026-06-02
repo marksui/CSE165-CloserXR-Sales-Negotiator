@@ -201,7 +201,13 @@ namespace CloserXR.SalesNegotiator
 
             statusText.text = "Status: " + conversationManager.Status;
             geminiText.text = "Gemini: " + (conversationManager.HasGeminiKey ? "connected" : "local fallback");
-            micText.text = "Mic: " + (speechInput != null && speechInput.IsRecording ? "recording" : "Space / Quest trigger");
+            string micLabel = speechInput == null ? "none"
+                : speechInput.IsRecording ? "recording"
+                : speechInput.IsListening ? "listening (auto)"
+                : speechInput.IsMuted ? "muted"
+                : speechInput.Mode == SpeechInputMode.PushToTalk ? "Space / Quest trigger"
+                : "idle (auto)";
+            micText.text = "Mic: " + micLabel;
             userText.text = "User: " + BlankFallback(conversationManager.LastUserText);
             agentText.text = "Agent: " + BlankFallback(conversationManager.LastAgentText);
         }
@@ -409,7 +415,13 @@ namespace CloserXR.SalesNegotiator
             GUILayout.Label("CloserXR Sales Negotiator");
             GUILayout.Label("Status: " + conversationManager.Status);
             GUILayout.Label("Gemini: " + (conversationManager.HasGeminiKey ? "connected" : "local fallback"));
-            GUILayout.Label("Mic: " + (speechInput != null && speechInput.IsRecording ? "recording" : "hold Space / Quest trigger"));
+            string onGuiMicLabel = speechInput == null ? "none"
+                : speechInput.IsRecording ? "recording"
+                : speechInput.IsListening ? "listening (auto)"
+                : speechInput.IsMuted ? "muted (agent speaking)"
+                : speechInput.Mode == SpeechInputMode.PushToTalk ? "hold Space / Quest trigger"
+                : "idle (auto)";
+            GUILayout.Label("Mic: " + onGuiMicLabel);
             GUILayout.Label("Quest: A policy, B premium, X family, Y forward, right stick more lines");
 
             GUILayout.Space(8);
