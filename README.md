@@ -80,23 +80,42 @@ The API key is never committed to git. Three sources are checked in priority ord
 
 Without any key, the demo runs on local canned dialogue automatically.
 
-### Desktop Development (env var)
+### Mac Development (env var)
 
 ```bash
 cp .env.template .env
 # open .env and replace the placeholder with your real key
 source .env
-# now open Unity from this same terminal session
+# open Unity from this same terminal session so it inherits the env var
 open -a "Unity Hub"
 ```
 
-On Windows PowerShell, set the key before opening Unity:
+The `.env` file is gitignored and stays on your machine only.
+
+### Windows Development (env var)
 
 ```powershell
-$env:GEMINI_API_KEY="your_gemini_api_key_here"
+cp .env.template .env
+# open .env and replace the placeholder with your real key
+# then load it into the current PowerShell session:
+Get-Content .env | ForEach-Object {
+    if ($_ -match '^([^#][^=]+)=(.+)$') {
+        Set-Item "env:$($matches[1].Trim())" $matches[2].Trim()
+    }
+}
+# open Unity Hub from this same session so it inherits the env var
+Start-Process "C:\Program Files\Unity Hub\Unity Hub.exe"
 ```
 
-The `.env` file is gitignored and stays on your machine only.
+The `Get-Content` block is the Windows equivalent of `source .env` on Mac — it reads the file and loads the variables into the current session. Unity Hub inherits them because it's launched from the same session.
+
+To make the key permanent across sessions (so you never have to source it again), run this once:
+
+```powershell
+[System.Environment]::SetEnvironmentVariable("GEMINI_API_KEY", "your_gemini_api_key_here", "User")
+```
+
+Then relaunch Unity Hub normally.
 
 ### Quest Device Builds (StreamingAssets file)
 
