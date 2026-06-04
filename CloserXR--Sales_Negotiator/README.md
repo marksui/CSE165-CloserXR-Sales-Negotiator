@@ -79,17 +79,18 @@ If Gemini is not configured, the app can record audio but cannot understand it; 
 
 The agent uses `SalesAgentTTS`.
 
-On Quest, the script first asks Android TTS to synthesize a WAV file, then plays that file through a Unity `AudioSource` on the agent. This avoids the common Quest issue where Android TTS reports success but no audible sound is routed into the VR app.
+On Quest, the script first asks Android TTS to synthesize an English WAV file, then plays that file through a Unity `AudioSource` on the agent. If file synthesis fails, it tries direct Android English TTS playback.
 
-If Android TTS voice data is missing or synthesis fails, the app plays a procedural fallback voice tone so the agent is not silent. The VR status panel shows TTS state such as:
+If Android TTS voice data is missing and both English TTS routes fail, the app plays a procedural fallback tone so the agent is not silent. That fallback tone is not English speech; it is only an audible failure signal. The VR status panel shows TTS state such as:
 
 - `Initializing...`
 - `Synthesizing voice`
 - `Playing voice`
-- `Fallback voice`
-- `Missing TTS voice data`
+- `Speaking English`
+- `Fallback tone (no English)`
+- `No English TTS voice data`
 
-If you only hear the fallback tone, install/enable usable TTS voice data on the Quest or use a project-level TTS provider.
+If you only hear the fallback tone, install/enable usable English TTS voice data on the Quest or use a project-level TTS provider.
 
 ## Passthrough
 
@@ -118,7 +119,7 @@ This project reads Quest input through OVRInput reflection and Unity XR `InputDe
 
 ### Agent has no sound
 
-Watch the VR status panel `TTS:` line. `Playing voice` means Unity audio is playing synthesized speech. `Fallback voice` means Android TTS synthesis failed and the project is using the backup tone. `Missing TTS voice data` points to the Quest Android TTS engine/voice data.
+Watch the VR status panel `TTS:` line. `Playing voice` means Unity audio is playing synthesized English speech. `Speaking English` means direct Android TTS is being used. `Fallback tone (no English)` means both English TTS routes failed and the project is using the backup tone. `No English TTS voice data` points to the Quest Android TTS engine/voice data.
 
 ### Microphone records but responses are wrong
 
@@ -127,4 +128,3 @@ Gemini must be configured for audio understanding. Without a key, the app record
 ## Editor Utilities
 
 Use the Unity menu item `CloserXR > Build Sales Agent Starter` to rebuild the starter agent prefab/controller setup if needed.
-

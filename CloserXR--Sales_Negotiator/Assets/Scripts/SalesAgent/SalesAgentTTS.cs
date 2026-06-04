@@ -23,7 +23,7 @@ namespace CloserXR.SalesNegotiator
         [SerializeField] private float minDistance = 0.75f;
         [SerializeField] private float maxDistance = 14f;
         [SerializeField] private bool proceduralFallbackVoice = true;
-        [SerializeField] private bool allowAndroidSystemTtsFallback = false;
+        [SerializeField] private bool allowAndroidSystemTtsFallback = true;
 
         private SalesAgentAnimator _animator;
         private AudioSource _audioSource;
@@ -144,7 +144,7 @@ namespace CloserXR.SalesNegotiator
             {
                 if (proceduralFallbackVoice)
                 {
-                    yield return PlayProceduralVoice(text, duration);
+                    yield return PlayProceduralFallbackTone(text, duration);
                 }
                 else
                 {
@@ -275,7 +275,7 @@ namespace CloserXR.SalesNegotiator
 
             if (allowAndroidSystemTtsFallback && TryStartAndroidSpeech(text, out error))
             {
-                DiagnosticStatus = "Speaking via Android";
+                DiagnosticStatus = "Speaking English";
                 yield return WaitForAndroidUtterance(Mathf.Clamp(estimatedDuration + 4f, 4f, 14f));
 
                 if (string.IsNullOrEmpty(_ttsError) && _ttsFinished)
@@ -487,7 +487,7 @@ namespace CloserXR.SalesNegotiator
             switch (langResult)
             {
                 case -2:
-                    return "Missing TTS voice data";
+                    return "No English TTS voice data";
                 case -1:
                     return "TTS language not supported";
                 default:
@@ -570,17 +570,17 @@ namespace CloserXR.SalesNegotiator
         }
 #endif
 
-        private IEnumerator PlayProceduralVoice(string text, float duration)
+        private IEnumerator PlayProceduralFallbackTone(string text, float duration)
         {
             EnsureAudioSource();
-            AudioClip clip = BuildProceduralVoiceClip(text, duration);
+            AudioClip clip = BuildProceduralFallbackTone(text, duration);
             if (clip == null)
             {
                 yield return new WaitForSeconds(duration);
                 yield break;
             }
 
-            DiagnosticStatus = "Fallback voice";
+            DiagnosticStatus = "Fallback tone (no English)";
             _audioSource.clip = clip;
             _audioSource.Play();
 
@@ -595,7 +595,7 @@ namespace CloserXR.SalesNegotiator
             _audioSource.clip = null;
         }
 
-        private AudioClip BuildProceduralVoiceClip(string text, float duration)
+        private AudioClip BuildProceduralFallbackTone(string text, float duration)
         {
             int frequency = 22050;
             int samples = Mathf.Max(1, Mathf.CeilToInt(duration * frequency));
@@ -615,7 +615,7 @@ namespace CloserXR.SalesNegotiator
                 data[i] = (carrier + buzz) * envelope * wordGate * voiceVolume * 0.22f;
             }
 
-            AudioClip clip = AudioClip.Create("CloserXRFallbackVoice", samples, 1, frequency, false);
+            AudioClip clip = AudioClip.Create("CloserXRFallbackTone", samples, 1, frequency, false);
             clip.SetData(data, 0);
             return clip;
         }
