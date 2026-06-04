@@ -14,7 +14,7 @@ Open the project in Unity, let packages import, then open `SampleScene`.
 
 ## Gemini API Key
 
-Gemini is optional for local fallback text, but required for real AI replies and microphone-audio understanding.
+Gemini is optional for local fallback text, but required for real AI replies, microphone-audio understanding, and the primary English agent voice.
 
 Supported key locations:
 
@@ -79,18 +79,24 @@ If Gemini is not configured, the app can record audio but cannot understand it; 
 
 The agent uses `SalesAgentTTS`.
 
-On Quest, the script first asks Android TTS to synthesize an English WAV file, then plays that file through a Unity `AudioSource` on the agent. If file synthesis fails, it tries direct Android English TTS playback.
+The primary voice path is Gemini native English TTS. `SalesAgentTTS` sends the agent's reply to `gemini-2.5-flash-preview-tts`, decodes the returned 24 kHz PCM audio, and plays it through a Unity `AudioSource` on the agent.
 
-If Android TTS voice data is missing and both English TTS routes fail, the app plays a procedural fallback tone so the agent is not silent. That fallback tone is not English speech; it is only an audible failure signal. The VR status panel shows TTS state such as:
+On Quest, if Gemini TTS is unavailable, the script falls back to Android English TTS. It first tries to synthesize a WAV file and play it spatially through Unity, then tries direct Android TTS playback.
+
+The old procedural sound-wave/tone fallback is disabled by default because it is not English speech. If all English TTS routes fail, the agent stays silent and the VR status panel shows the failure state. Useful status values include:
 
 - `Initializing...`
+- `Preparing English voice`
+- `Generating English voice`
+- `Speaking English (Gemini)`
 - `Synthesizing voice`
 - `Playing voice`
 - `Speaking English`
-- `Fallback tone (no English)`
+- `Missing Gemini key for English TTS`
+- `No English TTS available`
 - `No English TTS voice data`
 
-If you only hear the fallback tone, install/enable usable English TTS voice data on the Quest or use a project-level TTS provider.
+For reliable English speech on Quest, put your Gemini API key in `Assets/StreamingAssets/gemini_key.txt` before building. If Gemini is missing or blocked, Android TTS may still work, but it depends on the Quest TTS engine and installed English voice data.
 
 ## Passthrough
 
@@ -119,7 +125,7 @@ This project reads Quest input through OVRInput reflection and Unity XR `InputDe
 
 ### Agent has no sound
 
-Watch the VR status panel `TTS:` line. `Playing voice` means Unity audio is playing synthesized English speech. `Speaking English` means direct Android TTS is being used. `Fallback tone (no English)` means both English TTS routes failed and the project is using the backup tone. `No English TTS voice data` points to the Quest Android TTS engine/voice data.
+Watch the VR status panel `TTS:` line. `Speaking English (Gemini)` means Gemini generated real English audio and Unity is playing it from the agent. `Playing voice` means Android synthesized a WAV that Unity is playing. `Speaking English` means direct Android TTS is being used. `Missing Gemini key for English TTS` means the app cannot use the primary voice path. `No English TTS voice data` points to the Quest Android TTS engine/voice data.
 
 ### Microphone records but responses are wrong
 

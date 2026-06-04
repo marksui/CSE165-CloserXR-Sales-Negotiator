@@ -1,13 +1,14 @@
 using System;
 using System.Collections;
 using System.IO;
+using System.Text;
 using UnityEngine;
 using UnityEngine.Networking;
 
 namespace CloserXR.SalesNegotiator
 {
     /// <summary>
-    /// Drives agent speech via Android TTS on device and a silent timing fallback in the editor.
+    /// Drives agent speech through Gemini English TTS first, then Android TTS on device.
     /// Also runs a procedural lip-variation coroutine while speaking to give the talking
     /// animation a more organic rhythm without requiring real phoneme data.
     /// </summary>
@@ -17,15 +18,25 @@ namespace CloserXR.SalesNegotiator
         [SerializeField, Range(0.5f, 2f)] private float speechRate = 1.1f;
         [SerializeField, Range(0.5f, 2f)] private float pitch = 1.0f;
         [SerializeField] private float wordsPerSecond = 2.8f;
+        [Header("Gemini English TTS")]
+        [SerializeField] private bool useGeminiEnglishTts = true;
+        [SerializeField] private string geminiTtsModel = "gemini-2.5-flash-preview-tts";
+        [SerializeField] private string geminiVoiceName = "Kore";
+        [SerializeField] private string geminiTtsPromptPrefix = "Say in clear natural American English as a confident life insurance sales agent: ";
         [Header("Voice Audio")]
         [SerializeField, Range(0f, 1f)] private float voiceVolume = 1.0f;
-        [SerializeField, Range(0f, 1f)] private float spatialBlend = 0.75f;
-        [SerializeField] private float minDistance = 0.75f;
-        [SerializeField] private float maxDistance = 14f;
-        [SerializeField] private bool proceduralFallbackVoice = true;
+        [SerializeField, Range(0f, 1f)] private float spatialBlend = 0.2f;
+        [SerializeField] private float minDistance = 1.5f;
+        [SerializeField] private float maxDistance = 40f;
+        [SerializeField] private bool proceduralFallbackVoice = false;
         [SerializeField] private bool allowAndroidSystemTtsFallback = true;
 
+        private const string GeminiTtsEndpointTemplate =
+            "https://generativelanguage.googleapis.com/v1beta/models/{0}:generateContent";
+        private const int DefaultGeminiTtsSampleRate = 24000;
+
         private SalesAgentAnimator _animator;
+        private GeminiSalesClient _geminiClient;
         private AudioSource _audioSource;
         private Coroutine _speakRoutine;
         private Coroutine _lipRoutine;
@@ -45,6 +56,7 @@ namespace CloserXR.SalesNegotiator
         private void Awake()
         {
             _animator = GetComponent<SalesAgentAnimator>();
+            _geminiClient = GetComponent<GeminiSalesClient>();
             EnsureAudioSource();
 #if UNITY_ANDROID && !UNITY_EDITOR
             DiagnosticStatus = "Initializing...";
@@ -113,35 +125,58 @@ namespace CloserXR.SalesNegotiator
             float duration = EstimatedDuration(text);
             float lipDuration = Mathf.Clamp(duration + 2f, 3f, 14f);
             bool handledSpeech = false;
+            string ttsError = null;
 
+            DiagnosticStatus = "Starting voice";
             _lipRoutine = StartCoroutine(VariateTalkingSpeed(lipDuration));
 
+            if (useGeminiEnglishTts)
+            {
+                yield return PlayGeminiEnglishTextToSpeech(
+                    text,
+                    result => handledSpeech = result,
+                    error => ttsError = error);
+            }
+
 #if UNITY_ANDROID && !UNITY_EDITOR
-            float waited = 0f;
-            while (!_ttsReady && waited < 3f)
-            {
-                waited += Time.deltaTime;
-                yield return null;
-            }
-
-            string androidError = null;
-            if (_ttsReady && _tts != null)
-            {
-                yield return PlayAndroidTextToSpeech(text, duration, result => handledSpeech = result, error => androidError = error);
-            }
-
             if (!handledSpeech)
             {
-                DiagnosticStatus = string.IsNullOrEmpty(androidError)
-                    ? "TTS init timeout; fallback audio"
-                    : androidError + "; fallback audio";
+                float waited = 0f;
+                while (!_ttsReady && waited < 3f)
+                {
+                    waited += Time.deltaTime;
+                    yield return null;
+                }
+
+                string androidError = null;
+                if (_ttsReady && _tts != null)
+                {
+                    yield return PlayAndroidTextToSpeech(text, duration, result => handledSpeech = result, error => androidError = error);
+                }
+
+                if (!handledSpeech)
+                {
+                    ttsError = string.IsNullOrEmpty(androidError)
+                        ? "TTS init timeout"
+                        : androidError;
+                }
+                else
+                {
+                    ttsError = null;
+                }
             }
 #else
-            DiagnosticStatus = "Editor fallback audio";
+            if (!handledSpeech && string.IsNullOrEmpty(ttsError))
+            {
+                ttsError = "No English TTS available";
+            }
 #endif
 
             if (!handledSpeech)
             {
+                DiagnosticStatus = BuildNoSoundStatus(ttsError);
+                Debug.LogWarning($"[SalesAgentTTS] {DiagnosticStatus}");
+
                 if (proceduralFallbackVoice)
                 {
                     yield return PlayProceduralFallbackTone(text, duration);
@@ -152,14 +187,18 @@ namespace CloserXR.SalesNegotiator
                 }
             }
 #if UNITY_ANDROID && !UNITY_EDITOR
-            else if (!string.IsNullOrEmpty(androidError))
+            else if (!string.IsNullOrEmpty(ttsError))
             {
-                DiagnosticStatus = androidError;
+                DiagnosticStatus = ttsError;
             }
 #endif
 
             StopLipVariation();
-            DiagnosticStatus = "Ready";
+            if (handledSpeech)
+            {
+                DiagnosticStatus = "Ready";
+            }
+
             _speakRoutine = null;
             onComplete?.Invoke();
         }
@@ -179,6 +218,9 @@ namespace CloserXR.SalesNegotiator
             _audioSource.minDistance = minDistance;
             _audioSource.maxDistance = maxDistance;
             _audioSource.rolloffMode = AudioRolloffMode.Logarithmic;
+            _audioSource.priority = 0;
+            _audioSource.dopplerLevel = 0f;
+            _audioSource.ignoreListenerPause = true;
         }
 
         private IEnumerator VariateTalkingSpeed(float duration)
@@ -205,6 +247,252 @@ namespace CloserXR.SalesNegotiator
             }
 
             _animator?.SetTalkingSpeed(1f);
+        }
+
+        private IEnumerator PlayGeminiEnglishTextToSpeech(
+            string text,
+            Action<bool> onComplete,
+            Action<string> onError)
+        {
+            onComplete?.Invoke(false);
+            onError?.Invoke(null);
+
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                onError?.Invoke("No speech text");
+                yield break;
+            }
+
+            _geminiClient = _geminiClient != null ? _geminiClient : GetComponent<GeminiSalesClient>();
+            if (_geminiClient == null)
+            {
+                onError?.Invoke("Gemini TTS missing GeminiSalesClient");
+                yield break;
+            }
+
+            DiagnosticStatus = "Preparing English voice";
+            yield return _geminiClient.EnsureRuntimeApiKeyLoaded();
+
+            string apiKey = _geminiClient.GetRuntimeApiKey();
+            if (string.IsNullOrWhiteSpace(apiKey))
+            {
+                onError?.Invoke("Missing Gemini key for English TTS");
+                yield break;
+            }
+
+            string modelName = string.IsNullOrWhiteSpace(geminiTtsModel)
+                ? "gemini-2.5-flash-preview-tts"
+                : geminiTtsModel.Trim();
+
+            GeminiTtsRequest requestBody = new GeminiTtsRequest
+            {
+                contents = new[]
+                {
+                    new GeminiTtsContent
+                    {
+                        parts = new[]
+                        {
+                            new GeminiTtsPart
+                            {
+                                text = BuildGeminiSpeechPrompt(text)
+                            }
+                        }
+                    }
+                },
+                generationConfig = new GeminiTtsGenerationConfig
+                {
+                    responseModalities = new[] { "AUDIO" },
+                    speechConfig = new GeminiTtsSpeechConfig
+                    {
+                        voiceConfig = new GeminiTtsVoiceConfig
+                        {
+                            prebuiltVoiceConfig = new GeminiTtsPrebuiltVoiceConfig
+                            {
+                                voiceName = string.IsNullOrWhiteSpace(geminiVoiceName)
+                                    ? "Kore"
+                                    : geminiVoiceName.Trim()
+                            }
+                        }
+                    }
+                }
+            };
+
+            string json = JsonUtility.ToJson(requestBody);
+            byte[] body = Encoding.UTF8.GetBytes(json);
+            string endpoint = string.Format(GeminiTtsEndpointTemplate, modelName);
+
+            DiagnosticStatus = "Generating English voice";
+            using (UnityWebRequest webRequest = new UnityWebRequest(endpoint, UnityWebRequest.kHttpVerbPOST))
+            {
+                webRequest.uploadHandler = new UploadHandlerRaw(body);
+                webRequest.downloadHandler = new DownloadHandlerBuffer();
+                webRequest.SetRequestHeader("Content-Type", "application/json");
+                webRequest.SetRequestHeader("x-goog-api-key", apiKey);
+
+                yield return webRequest.SendWebRequest();
+
+                if (webRequest.result != UnityWebRequest.Result.Success)
+                {
+                    string message = string.IsNullOrWhiteSpace(webRequest.downloadHandler.text)
+                        ? webRequest.error
+                        : webRequest.downloadHandler.text;
+                    Debug.LogWarning("[SalesAgentTTS] Gemini English TTS request failed: " + message);
+                    onError?.Invoke("Gemini English TTS failed: " + message);
+                    yield break;
+                }
+
+                byte[] pcmBytes = ExtractGeminiPcmBytes(webRequest.downloadHandler.text, out string mimeType);
+                if (pcmBytes == null || pcmBytes.Length == 0)
+                {
+                    onError?.Invoke("Gemini English TTS returned no audio");
+                    yield break;
+                }
+
+                AudioClip clip = CreatePcm16MonoClip(pcmBytes, mimeType);
+                if (clip == null)
+                {
+                    onError?.Invoke("Gemini English TTS audio decode failed");
+                    yield break;
+                }
+
+                EnsureAudioSource();
+                DiagnosticStatus = "Speaking English (Gemini)";
+                _audioSource.clip = clip;
+                _audioSource.Play();
+
+                float timeout = Mathf.Max(clip.length + 0.5f, 1f);
+                float elapsed = 0f;
+                while (_audioSource != null && _audioSource.isPlaying && elapsed < timeout)
+                {
+                    elapsed += Time.deltaTime;
+                    yield return null;
+                }
+
+                _audioSource.clip = null;
+                onComplete?.Invoke(true);
+            }
+        }
+
+        private string BuildGeminiSpeechPrompt(string text)
+        {
+            if (string.IsNullOrWhiteSpace(geminiTtsPromptPrefix))
+            {
+                return text;
+            }
+
+            return geminiTtsPromptPrefix.TrimEnd() + " " + text.Trim();
+        }
+
+        private static byte[] ExtractGeminiPcmBytes(string responseText, out string mimeType)
+        {
+            mimeType = null;
+            if (string.IsNullOrWhiteSpace(responseText))
+            {
+                return null;
+            }
+
+            GeminiTtsResponse response = JsonUtility.FromJson<GeminiTtsResponse>(responseText);
+            if (response?.candidates == null)
+            {
+                return null;
+            }
+
+            foreach (GeminiTtsCandidate candidate in response.candidates)
+            {
+                if (candidate?.content?.parts == null)
+                {
+                    continue;
+                }
+
+                foreach (GeminiTtsPart part in candidate.content.parts)
+                {
+                    if (string.IsNullOrWhiteSpace(part?.inlineData?.data))
+                    {
+                        continue;
+                    }
+
+                    mimeType = part.inlineData.mimeType;
+                    try
+                    {
+                        return Convert.FromBase64String(part.inlineData.data);
+                    }
+                    catch (FormatException)
+                    {
+                        return null;
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        private static AudioClip CreatePcm16MonoClip(byte[] pcmBytes, string mimeType)
+        {
+            int sampleCount = pcmBytes.Length / 2;
+            if (sampleCount <= 0)
+            {
+                return null;
+            }
+
+            int frequency = ParsePcmSampleRate(mimeType);
+            float[] samples = new float[sampleCount];
+            for (int i = 0; i < sampleCount; i++)
+            {
+                int offset = i * 2;
+                short pcmSample = (short)(pcmBytes[offset] | (pcmBytes[offset + 1] << 8));
+                samples[i] = Mathf.Clamp(pcmSample / 32768f, -1f, 1f);
+            }
+
+            AudioClip clip = AudioClip.Create("GeminiEnglishTTS", sampleCount, 1, frequency, false);
+            clip.SetData(samples, 0);
+            return clip;
+        }
+
+        private static int ParsePcmSampleRate(string mimeType)
+        {
+            if (string.IsNullOrWhiteSpace(mimeType))
+            {
+                return DefaultGeminiTtsSampleRate;
+            }
+
+            const string RateToken = "rate=";
+            int rateIndex = mimeType.IndexOf(RateToken, StringComparison.OrdinalIgnoreCase);
+            if (rateIndex < 0)
+            {
+                return DefaultGeminiTtsSampleRate;
+            }
+
+            int start = rateIndex + RateToken.Length;
+            int end = start;
+            while (end < mimeType.Length && char.IsDigit(mimeType[end]))
+            {
+                end++;
+            }
+
+            if (end <= start)
+            {
+                return DefaultGeminiTtsSampleRate;
+            }
+
+            return int.TryParse(mimeType.Substring(start, end - start), out int rate) && rate > 0
+                ? rate
+                : DefaultGeminiTtsSampleRate;
+        }
+
+        private static string BuildNoSoundStatus(string error)
+        {
+            if (string.IsNullOrWhiteSpace(error))
+            {
+                return "No sound: No English TTS available";
+            }
+
+            string normalized = error.Replace('\n', ' ').Replace('\r', ' ').Trim();
+            if (normalized.Length > 80)
+            {
+                normalized = normalized.Substring(0, 77) + "...";
+            }
+
+            return "No sound: " + normalized;
         }
 
         private void InitAndroidTTS()
@@ -618,6 +906,70 @@ namespace CloserXR.SalesNegotiator
             AudioClip clip = AudioClip.Create("CloserXRFallbackTone", samples, 1, frequency, false);
             clip.SetData(data, 0);
             return clip;
+        }
+
+        [Serializable]
+        private sealed class GeminiTtsRequest
+        {
+            public GeminiTtsContent[] contents;
+            public GeminiTtsGenerationConfig generationConfig;
+        }
+
+        [Serializable]
+        private sealed class GeminiTtsGenerationConfig
+        {
+            public string[] responseModalities;
+            public GeminiTtsSpeechConfig speechConfig;
+        }
+
+        [Serializable]
+        private sealed class GeminiTtsSpeechConfig
+        {
+            public GeminiTtsVoiceConfig voiceConfig;
+        }
+
+        [Serializable]
+        private sealed class GeminiTtsVoiceConfig
+        {
+            public GeminiTtsPrebuiltVoiceConfig prebuiltVoiceConfig;
+        }
+
+        [Serializable]
+        private sealed class GeminiTtsPrebuiltVoiceConfig
+        {
+            public string voiceName;
+        }
+
+        [Serializable]
+        private sealed class GeminiTtsContent
+        {
+            public GeminiTtsPart[] parts;
+        }
+
+        [Serializable]
+        private sealed class GeminiTtsPart
+        {
+            public string text;
+            public GeminiTtsInlineData inlineData;
+        }
+
+        [Serializable]
+        private sealed class GeminiTtsInlineData
+        {
+            public string mimeType;
+            public string data;
+        }
+
+        [Serializable]
+        private sealed class GeminiTtsResponse
+        {
+            public GeminiTtsCandidate[] candidates;
+        }
+
+        [Serializable]
+        private sealed class GeminiTtsCandidate
+        {
+            public GeminiTtsContent content;
         }
     }
 }

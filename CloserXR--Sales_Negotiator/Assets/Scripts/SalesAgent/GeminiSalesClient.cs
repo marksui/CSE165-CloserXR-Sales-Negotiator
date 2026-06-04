@@ -31,6 +31,13 @@ namespace CloserXR.SalesNegotiator
         public bool CanAttemptRequest => HasApiKey || streamingAssetsKeyLoading || !streamingAssetsKeyLoadAttempted;
         public string Model => model;
 
+        public string GetRuntimeApiKey() => GetApiKey();
+
+        public IEnumerator EnsureRuntimeApiKeyLoaded()
+        {
+            yield return EnsureStreamingAssetsKeyLoaded();
+        }
+
         private void Awake()
         {
             StartCoroutine(EnsureStreamingAssetsKeyLoaded());
