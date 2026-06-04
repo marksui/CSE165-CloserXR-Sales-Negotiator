@@ -52,6 +52,7 @@ namespace CloserXR.SalesNegotiator
             SalesConversationManager conversation = GetOrAdd<SalesConversationManager>();
             PushToTalkSpeechInput speechInput = GetOrAdd<PushToTalkSpeechInput>();
             QuestControllerConversationInput questInput = GetOrAdd<QuestControllerConversationInput>();
+            SalesConversationChoiceMenu choiceMenu = GetOrAdd<SalesConversationChoiceMenu>();
             SalesConversationDebugHud hud = GetOrAdd<SalesConversationDebugHud>();
             SalesAgentVRStatusPanel vrStatusPanel = enableVrStatusPanel ? GetOrAdd<SalesAgentVRStatusPanel>() : null;
             SalesAgentMaterialStyler materialStyler = GetOrAdd<SalesAgentMaterialStyler>();
@@ -63,6 +64,7 @@ namespace CloserXR.SalesNegotiator
             conversation.Configure(gemini, router, animator, pacer, tts);
             speechInput.Assign(conversation);
             questInput.Assign(conversation);
+            choiceMenu.Assign(conversation, mainCamera != null ? mainCamera.transform : null);
             hud.Assign(conversation, speechInput);
             vrStatusPanel?.Assign(conversation, speechInput, gemini, roomMap, mainCamera != null ? mainCamera.transform : null);
             materialStyler.ApplyNow();

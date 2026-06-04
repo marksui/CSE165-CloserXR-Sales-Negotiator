@@ -13,6 +13,7 @@ namespace CloserXR.SalesNegotiator
 
         private static readonly Dictionary<string, Type> NestedEnumTypes = new Dictionary<string, Type>(StringComparer.OrdinalIgnoreCase);
         private static readonly Dictionary<string, object> EnumValues = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
+        private static readonly Dictionary<string, MethodInfo> OvrInputMethods = new Dictionary<string, MethodInfo>(StringComparer.OrdinalIgnoreCase);
 
         private static Type ovrInputType;
         private static Type ovrCameraRigType;
@@ -37,6 +38,32 @@ namespace CloserXR.SalesNegotiator
                 || GetButtonUp("PrimaryIndexTrigger");
         }
 
+        public static bool GetLeftGripDown()
+        {
+            return GetRawButtonDown("LHandTrigger", "LTouch")
+                || GetButtonDown("PrimaryHandTrigger", "LTouch");
+        }
+
+        public static bool GetLeftIndexTriggerDown()
+        {
+            return GetRawButtonDown("LIndexTrigger", "LTouch")
+                || GetButtonDown("PrimaryIndexTrigger", "LTouch");
+        }
+
+        public static bool GetRightIndexTriggerDown()
+        {
+            return GetRawButtonDown("RIndexTrigger", "RTouch")
+                || GetButtonDown("PrimaryIndexTrigger", "RTouch")
+                || GetButtonDown("SecondaryIndexTrigger", "RTouch");
+        }
+
+        public static bool GetRightIndexTriggerUp()
+        {
+            return GetRawButtonUp("RIndexTrigger", "RTouch")
+                || GetButtonUp("PrimaryIndexTrigger", "RTouch")
+                || GetButtonUp("SecondaryIndexTrigger", "RTouch");
+        }
+
         public static bool GetRawButtonDown(string rawButtonName)
         {
             return InvokeOvrInputEnumMethod("GetDown", "RawButton", rawButtonName);
@@ -55,6 +82,50 @@ namespace CloserXR.SalesNegotiator
         public static bool GetButtonUp(string buttonName)
         {
             return InvokeOvrInputEnumMethod("GetUp", "Button", buttonName);
+        }
+
+        private static bool GetRawButtonDown(string rawButtonName, string controllerName)
+        {
+            return InvokeOvrInputEnumMethod("GetDown", "RawButton", rawButtonName, controllerName);
+        }
+
+        private static bool GetRawButtonUp(string rawButtonName, string controllerName)
+        {
+            return InvokeOvrInputEnumMethod("GetUp", "RawButton", rawButtonName, controllerName);
+        }
+
+        private static bool GetButtonDown(string buttonName, string controllerName)
+        {
+            return InvokeOvrInputEnumMethod("GetDown", "Button", buttonName, controllerName);
+        }
+
+        private static bool GetButtonUp(string buttonName, string controllerName)
+        {
+            return InvokeOvrInputEnumMethod("GetUp", "Button", buttonName, controllerName);
+        }
+
+        public static bool TryGetLeftControllerRay(out Ray ray)
+        {
+            if (TryGetControllerAnchorRay("leftControllerAnchor", "leftHandAnchor", out ray))
+            {
+                return true;
+            }
+
+            if (TryGetLocalControllerRay("LTouch", out ray))
+            {
+                return true;
+            }
+
+            Camera camera = Camera.main;
+            if (camera != null)
+            {
+                Transform cameraTransform = camera.transform;
+                ray = new Ray(cameraTransform.TransformPoint(new Vector3(-0.22f, -0.24f, 0.05f)), cameraTransform.forward);
+                return false;
+            }
+
+            ray = new Ray(Vector3.zero, Vector3.forward);
+            return false;
         }
 
         public static Camera EnsureProject3HeadTrackedView(Camera fallbackCamera)
@@ -102,6 +173,7 @@ namespace CloserXR.SalesNegotiator
         public static bool EnsurePassthrough(GameObject target)
         {
             target = target != null ? target : new GameObject("CloserXR Camera Runtime");
+            GameObject passthroughHost = FindOvrCameraRigObject() ?? target;
 
             ovrManagerType = ovrManagerType ?? FindType("OVRManager");
             ovrPassthroughLayerType = ovrPassthroughLayerType ?? FindType("OVRPassthroughLayer");
@@ -120,12 +192,17 @@ namespace CloserXR.SalesNegotiator
             Component manager = GetOvrManagerInstance() as Component;
             if (manager == null)
             {
-                manager = target.GetComponent(ovrManagerType);
+                manager = passthroughHost.GetComponent(ovrManagerType);
             }
 
             if (manager == null)
             {
-                manager = target.AddComponent(ovrManagerType);
+                manager = UnityEngine.Object.FindObjectOfType(ovrManagerType) as Component;
+            }
+
+            if (manager == null)
+            {
+                manager = passthroughHost.AddComponent(ovrManagerType);
             }
 
             SetMember(manager, "isInsightPassthroughEnabled", true);
@@ -137,12 +214,17 @@ namespace CloserXR.SalesNegotiator
             Component passthroughLayer = UnityEngine.Object.FindObjectOfType(ovrPassthroughLayerType) as Component;
             if (passthroughLayer == null)
             {
-                passthroughLayer = target.AddComponent(ovrPassthroughLayerType);
+                passthroughLayer = passthroughHost.AddComponent(ovrPassthroughLayerType);
             }
 
+            SetMember(passthroughLayer, "enabled", true);
+            SetEnumMember(passthroughLayer, "overlayType", "Underlay");
+            SetEnumMember(passthroughLayer, "projectionSurfaceType", "Reconstructed");
+            SetMember(passthroughLayer, "compositionDepth", 0);
             SetMember(passthroughLayer, "hidden", false);
             SetMember(passthroughLayer, "textureOpacity", 1f);
             SetMember(passthroughLayer, "edgeRenderingEnabled", false);
+            EnsureTransparentCameraBackground(target);
             return true;
         }
 
@@ -155,7 +237,7 @@ namespace CloserXR.SalesNegotiator
         {
             headCamera.tag = "MainCamera";
             headCamera.clearFlags = CameraClearFlags.SolidColor;
-            headCamera.backgroundColor = new Color(0f, 0f, 0f, 0f);
+            headCamera.backgroundColor = Color.clear;
             headCamera.stereoTargetEye = StereoTargetEyeMask.Both;
 
             if (fallbackCamera != null)
@@ -244,11 +326,38 @@ namespace CloserXR.SalesNegotiator
             return true;
         }
 
-        private static bool InvokeOvrInputEnumMethod(string methodName, string enumTypeName, string enumValueName)
+        private static bool InvokeOvrInputEnumMethod(
+            string methodName,
+            string enumTypeName,
+            string enumValueName,
+            string controllerName = "Active")
         {
             if (!TryGetOvrInputEnumValue(enumTypeName, enumValueName, out Type enumType, out object enumValue))
             {
                 return false;
+            }
+
+            MethodInfo method = GetOvrInputMethod(methodName, enumType);
+            if (method == null)
+            {
+                return false;
+            }
+
+            ParameterInfo[] parameters = method.GetParameters();
+            object[] arguments = parameters.Length == 1
+                ? new[] { enumValue }
+                : new[] { enumValue, GetOvrInputControllerArgument(parameters[1], controllerName) };
+
+            object result = method.Invoke(null, arguments);
+            return result is bool pressed && pressed;
+        }
+
+        private static MethodInfo GetOvrInputMethod(string methodName, Type enumType)
+        {
+            string cacheKey = methodName + "." + enumType.FullName;
+            if (OvrInputMethods.TryGetValue(cacheKey, out MethodInfo cachedMethod))
+            {
+                return cachedMethod;
             }
 
             MethodInfo method = ovrInputType
@@ -261,16 +370,34 @@ namespace CloserXR.SalesNegotiator
                     }
 
                     ParameterInfo[] parameters = candidate.GetParameters();
-                    return parameters.Length == 1 && parameters[0].ParameterType == enumType;
+                    if (parameters.Length < 1 || parameters.Length > 2 || parameters[0].ParameterType != enumType)
+                    {
+                        return false;
+                    }
+
+                    return parameters.Length == 1 || IsOvrInputControllerParameter(parameters[1]);
                 });
 
-            if (method == null)
+            if (method != null)
             {
-                return false;
+                OvrInputMethods[cacheKey] = method;
             }
 
-            object result = method.Invoke(null, new[] { enumValue });
-            return result is bool pressed && pressed;
+            return method;
+        }
+
+        private static bool IsOvrInputControllerParameter(ParameterInfo parameter)
+        {
+            Type controllerType = ovrInputType.GetNestedType("Controller", BindingFlags.Public);
+            return controllerType != null && parameter.ParameterType == controllerType;
+        }
+
+        private static object GetOvrInputControllerArgument(ParameterInfo parameter, string controllerName)
+        {
+            string resolvedControllerName = string.IsNullOrWhiteSpace(controllerName) ? "Active" : controllerName;
+            return TryGetOvrInputEnumValue("Controller", resolvedControllerName, out _, out object controller)
+                ? controller
+                : parameter.DefaultValue;
         }
 
         private static bool TryGetOvrInputEnumValue(string enumTypeName, string enumValueName, out Type enumType, out object enumValue)
@@ -326,6 +453,117 @@ namespace CloserXR.SalesNegotiator
         {
             PropertyInfo property = ovrManagerType.GetProperty("instance", PublicStatic);
             return property != null ? property.GetValue(null) : null;
+        }
+
+        private static GameObject FindOvrCameraRigObject()
+        {
+            Component cameraRig = FindOvrCameraRigComponent();
+            return cameraRig != null ? cameraRig.gameObject : null;
+        }
+
+        private static Component FindOvrCameraRigComponent()
+        {
+            ovrCameraRigType = ovrCameraRigType ?? FindType("OVRCameraRig");
+            if (ovrCameraRigType == null)
+            {
+                return null;
+            }
+
+            return UnityEngine.Object.FindObjectOfType(ovrCameraRigType) as Component;
+        }
+
+        private static bool TryGetControllerAnchorRay(string controllerAnchorName, string handAnchorName, out Ray ray)
+        {
+            Component cameraRig = FindOvrCameraRigComponent();
+            Transform controllerAnchor = GetObjectMember(cameraRig, controllerAnchorName) as Transform
+                ?? GetObjectMember(cameraRig, handAnchorName) as Transform;
+
+            if (controllerAnchor != null && controllerAnchor.gameObject.activeInHierarchy)
+            {
+                Vector3 direction = controllerAnchor.forward;
+                if (direction.sqrMagnitude > 0.0001f)
+                {
+                    ray = new Ray(controllerAnchor.position, direction.normalized);
+                    return true;
+                }
+            }
+
+            ray = default;
+            return false;
+        }
+
+        private static bool TryGetLocalControllerRay(string controllerName, out Ray ray)
+        {
+            ray = default;
+
+            if (!TryGetOvrInputEnumValue("Controller", controllerName, out Type controllerType, out object controllerValue))
+            {
+                return false;
+            }
+
+            MethodInfo positionMethod = ovrInputType.GetMethod(
+                "GetLocalControllerPosition",
+                PublicStatic,
+                null,
+                new[] { controllerType },
+                null);
+            MethodInfo rotationMethod = ovrInputType.GetMethod(
+                "GetLocalControllerRotation",
+                PublicStatic,
+                null,
+                new[] { controllerType },
+                null);
+
+            if (positionMethod == null || rotationMethod == null)
+            {
+                return false;
+            }
+
+            object positionResult = positionMethod.Invoke(null, new[] { controllerValue });
+            object rotationResult = rotationMethod.Invoke(null, new[] { controllerValue });
+            if (!(positionResult is Vector3 localPosition) || !(rotationResult is Quaternion localRotation))
+            {
+                return false;
+            }
+
+            Transform trackingSpace = GetTrackingSpaceTransform();
+            Vector3 origin = trackingSpace != null ? trackingSpace.TransformPoint(localPosition) : localPosition;
+            Quaternion rotation = trackingSpace != null ? trackingSpace.rotation * localRotation : localRotation;
+            Vector3 direction = rotation * Vector3.forward;
+            if (direction.sqrMagnitude <= 0.0001f)
+            {
+                return false;
+            }
+
+            ray = new Ray(origin, direction.normalized);
+            return true;
+        }
+
+        private static Transform GetTrackingSpaceTransform()
+        {
+            Component cameraRig = FindOvrCameraRigComponent();
+            return GetObjectMember(cameraRig, "trackingSpace") as Transform
+                ?? (cameraRig != null ? FindDeepChild(cameraRig.transform, "TrackingSpace") : null);
+        }
+
+        private static void EnsureTransparentCameraBackground(GameObject target)
+        {
+            Camera camera = target != null ? target.GetComponent<Camera>() : null;
+            if (camera == null)
+            {
+                GameObject rigObject = FindOvrCameraRigObject();
+                Transform centerEye = rigObject != null ? FindDeepChild(rigObject.transform, "CenterEyeAnchor") : null;
+                camera = centerEye != null ? centerEye.GetComponent<Camera>() : Camera.main;
+            }
+
+            if (camera == null)
+            {
+                return;
+            }
+
+            camera.clearFlags = CameraClearFlags.SolidColor;
+            camera.backgroundColor = Color.clear;
+            camera.stereoTargetEye = StereoTargetEyeMask.Both;
         }
 
         private static void SetMember(object target, string memberName, object value)
