@@ -38,7 +38,7 @@ namespace CloserXR.SalesNegotiator
 
         private void Update()
         {
-            if (!enableQuestButtons || conversationManager == null || Time.time < nextSubmitTime)
+            if (!enableQuestButtons || SalesConversationChoiceMenu.IsAnyMenuOpen || conversationManager == null || Time.time < nextSubmitTime)
             {
                 return;
             }

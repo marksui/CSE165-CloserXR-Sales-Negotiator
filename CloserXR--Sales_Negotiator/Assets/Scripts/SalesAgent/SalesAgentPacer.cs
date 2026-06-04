@@ -7,10 +7,10 @@ namespace CloserXR.SalesNegotiator
     {
         [SerializeField] private SalesAgentAnimator agentAnimator;
         [SerializeField] private Transform userHead;
-        [SerializeField] private float neutralDistance = 2.2f;
-        [SerializeField] private float closingDistance = 1.35f;
-        [SerializeField] private float defensiveDistance = 2.7f;
-        [SerializeField] private float pacingWidth = 0.75f;
+        [SerializeField] private float neutralDistance = 3.4f;
+        [SerializeField] private float closingDistance = 2.3f;
+        [SerializeField] private float defensiveDistance = 4f;
+        [SerializeField] private float pacingWidth = 1.1f;
         [SerializeField] private float moveSpeed = 1.5f;
         [SerializeField] private float turnSpeed = 8f;
         [SerializeField] private bool respectRoomBounds = true;
@@ -147,20 +147,6 @@ namespace CloserXR.SalesNegotiator
 
             float sideOffset = active ? Mathf.Sin(paceTimer * 1.35f) * desiredWidth : 0f;
             Vector3 target = worldAnchorPosition + worldAnchorRight * sideOffset;
-
-            if (respectRoomBounds)
-            {
-                if (roomMap == null)
-                {
-                    roomMap = FindObjectOfType<SpatialRoomMapDemo>();
-                }
-
-                if (roomMap != null)
-                {
-                    target = roomMap.ClampToRoom(target, roomWallPadding);
-                    target.y = worldAnchorPosition.y;
-                }
-            }
 
             Vector3 before = transform.position;
             transform.position = Vector3.MoveTowards(transform.position, target, moveSpeed * Time.deltaTime);

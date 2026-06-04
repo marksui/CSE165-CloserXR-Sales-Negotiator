@@ -141,13 +141,8 @@ namespace CloserXR.SalesNegotiator
 
         private void HandlePTTInput()
         {
-            bool menuOpen = SalesConversationChoiceMenu.IsAnyMenuOpen;
-            bool triggerDown = useQuestTrigger && (menuOpen
-                ? QuestRuntimeBridge.GetRightIndexTriggerDown()
-                : QuestRuntimeBridge.GetPrimaryIndexTriggerDown());
-            bool triggerUp = useQuestTrigger && (menuOpen
-                ? QuestRuntimeBridge.GetRightIndexTriggerUp()
-                : QuestRuntimeBridge.GetPrimaryIndexTriggerUp());
+            bool triggerDown = useQuestTrigger && QuestRuntimeBridge.GetRightIndexTriggerDown();
+            bool triggerUp = useQuestTrigger && QuestRuntimeBridge.GetRightIndexTriggerUp();
             bool keyDown     = Input.GetKeyDown(editorRecordKey);
             bool keyUp       = Input.GetKeyUp(editorRecordKey);
 

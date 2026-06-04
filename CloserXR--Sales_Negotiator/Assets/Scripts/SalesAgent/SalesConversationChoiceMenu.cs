@@ -69,7 +69,7 @@ namespace CloserXR.SalesNegotiator
 
         private void LateUpdate()
         {
-            if (QuestRuntimeBridge.GetLeftGripDown() || Input.GetKeyDown(KeyCode.M))
+            if (QuestRuntimeBridge.GetLeftMenuToggleDown() || Input.GetKeyDown(KeyCode.M))
             {
                 SetMenuOpen(!menuOpen);
             }

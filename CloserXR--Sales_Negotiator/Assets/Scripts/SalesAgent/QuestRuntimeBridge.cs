@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using UnityEngine;
+using UnityEngine.XR;
 
 namespace CloserXR.SalesNegotiator
 {
@@ -10,10 +11,13 @@ namespace CloserXR.SalesNegotiator
     {
         private const BindingFlags PublicStatic = BindingFlags.Public | BindingFlags.Static;
         private const BindingFlags PublicInstance = BindingFlags.Public | BindingFlags.Instance;
+        private const float AnalogPressThreshold = 0.45f;
+        private const float ThumbstickDirectionThreshold = 0.55f;
 
         private static readonly Dictionary<string, Type> NestedEnumTypes = new Dictionary<string, Type>(StringComparer.OrdinalIgnoreCase);
         private static readonly Dictionary<string, object> EnumValues = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
         private static readonly Dictionary<string, MethodInfo> OvrInputMethods = new Dictionary<string, MethodInfo>(StringComparer.OrdinalIgnoreCase);
+        private static readonly Dictionary<string, ButtonEdgeState> ButtonEdgeStates = new Dictionary<string, ButtonEdgeState>(StringComparer.OrdinalIgnoreCase);
 
         private static Type ovrInputType;
         private static Type ovrCameraRigType;
@@ -24,84 +28,323 @@ namespace CloserXR.SalesNegotiator
         private static bool warnedMissingPassthrough;
         private static bool warnedMissingCameraRig;
 
+        private enum ButtonEdge
+        {
+            Down,
+            Up
+        }
+
+        private enum StickDirection
+        {
+            Up,
+            Down,
+            Left,
+            Right
+        }
+
+        private sealed class ButtonEdgeState
+        {
+            public int Frame = -1;
+            public bool Previous;
+            public bool Current;
+        }
+
         public static bool GetPrimaryIndexTriggerDown()
         {
-            return GetRawButtonDown("LIndexTrigger")
-                || GetRawButtonDown("RIndexTrigger")
-                || GetButtonDown("PrimaryIndexTrigger");
+            return GetButtonEdge("PrimaryIndexTrigger", IsPrimaryIndexTriggerPressed(), ButtonEdge.Down);
         }
 
         public static bool GetPrimaryIndexTriggerUp()
         {
-            return GetRawButtonUp("LIndexTrigger")
-                || GetRawButtonUp("RIndexTrigger")
-                || GetButtonUp("PrimaryIndexTrigger");
+            return GetButtonEdge("PrimaryIndexTrigger", IsPrimaryIndexTriggerPressed(), ButtonEdge.Up);
         }
 
         public static bool GetLeftGripDown()
         {
-            return GetRawButtonDown("LHandTrigger", "LTouch")
-                || GetButtonDown("PrimaryHandTrigger", "LTouch");
+            return GetButtonEdge("LeftGrip", IsLeftGripPressed(), ButtonEdge.Down);
+        }
+
+        public static bool GetLeftMenuToggleDown()
+        {
+            return GetButtonEdge("LeftMenuToggle", IsLeftMenuTogglePressed(), ButtonEdge.Down);
         }
 
         public static bool GetLeftIndexTriggerDown()
         {
-            return GetRawButtonDown("LIndexTrigger", "LTouch")
-                || GetButtonDown("PrimaryIndexTrigger", "LTouch");
+            return GetButtonEdge("LeftIndexTrigger", IsLeftIndexTriggerPressed(), ButtonEdge.Down);
         }
 
         public static bool GetRightIndexTriggerDown()
         {
-            return GetRawButtonDown("RIndexTrigger", "RTouch")
-                || GetButtonDown("PrimaryIndexTrigger", "RTouch")
-                || GetButtonDown("SecondaryIndexTrigger", "RTouch");
+            return GetButtonEdge("RightIndexTrigger", IsRightIndexTriggerPressed(), ButtonEdge.Down);
         }
 
         public static bool GetRightIndexTriggerUp()
         {
-            return GetRawButtonUp("RIndexTrigger", "RTouch")
-                || GetButtonUp("PrimaryIndexTrigger", "RTouch")
-                || GetButtonUp("SecondaryIndexTrigger", "RTouch");
+            return GetButtonEdge("RightIndexTrigger", IsRightIndexTriggerPressed(), ButtonEdge.Up);
         }
 
         public static bool GetRawButtonDown(string rawButtonName)
         {
-            return InvokeOvrInputEnumMethod("GetDown", "RawButton", rawButtonName);
+            return GetButtonEdge("RawButton." + rawButtonName, IsRawButtonCurrentlyPressed(rawButtonName), ButtonEdge.Down);
         }
 
         public static bool GetRawButtonUp(string rawButtonName)
         {
-            return InvokeOvrInputEnumMethod("GetUp", "RawButton", rawButtonName);
+            return GetButtonEdge("RawButton." + rawButtonName, IsRawButtonCurrentlyPressed(rawButtonName), ButtonEdge.Up);
         }
 
         public static bool GetButtonDown(string buttonName)
         {
-            return InvokeOvrInputEnumMethod("GetDown", "Button", buttonName);
+            return GetButtonEdge("Button." + buttonName, IsButtonCurrentlyPressed(buttonName), ButtonEdge.Down);
         }
 
         public static bool GetButtonUp(string buttonName)
         {
-            return InvokeOvrInputEnumMethod("GetUp", "Button", buttonName);
+            return GetButtonEdge("Button." + buttonName, IsButtonCurrentlyPressed(buttonName), ButtonEdge.Up);
         }
 
         private static bool GetRawButtonDown(string rawButtonName, string controllerName)
         {
-            return InvokeOvrInputEnumMethod("GetDown", "RawButton", rawButtonName, controllerName);
+            return GetButtonEdge("RawButton." + controllerName + "." + rawButtonName, IsRawButtonCurrentlyPressed(rawButtonName, controllerName), ButtonEdge.Down);
         }
 
         private static bool GetRawButtonUp(string rawButtonName, string controllerName)
         {
-            return InvokeOvrInputEnumMethod("GetUp", "RawButton", rawButtonName, controllerName);
+            return GetButtonEdge("RawButton." + controllerName + "." + rawButtonName, IsRawButtonCurrentlyPressed(rawButtonName, controllerName), ButtonEdge.Up);
         }
 
         private static bool GetButtonDown(string buttonName, string controllerName)
         {
-            return InvokeOvrInputEnumMethod("GetDown", "Button", buttonName, controllerName);
+            return GetButtonEdge("Button." + controllerName + "." + buttonName, IsButtonCurrentlyPressed(buttonName, controllerName), ButtonEdge.Down);
         }
 
         private static bool GetButtonUp(string buttonName, string controllerName)
         {
-            return InvokeOvrInputEnumMethod("GetUp", "Button", buttonName, controllerName);
+            return GetButtonEdge("Button." + controllerName + "." + buttonName, IsButtonCurrentlyPressed(buttonName, controllerName), ButtonEdge.Up);
+        }
+
+        private static bool IsPrimaryIndexTriggerPressed()
+        {
+            return IsLeftIndexTriggerPressed() || IsRightIndexTriggerPressed();
+        }
+
+        private static bool IsLeftGripPressed()
+        {
+            return IsRawButtonCurrentlyPressed("LHandTrigger", "LTouch")
+                || IsButtonCurrentlyPressed("PrimaryHandTrigger", "LTouch")
+                || GetOvrAxis1D("RawAxis1D", "LHandTrigger", "LTouch") >= AnalogPressThreshold
+                || GetOvrAxis1D("Axis1D", "PrimaryHandTrigger", "LTouch") >= AnalogPressThreshold
+                || GetXrAnalogButtonPressed(XRNode.LeftHand, CommonUsages.gripButton, CommonUsages.grip);
+        }
+
+        private static bool IsLeftMenuTogglePressed()
+        {
+            return IsLeftGripPressed()
+                || IsRawButtonCurrentlyPressed("LThumbstick", "LTouch")
+                || IsButtonCurrentlyPressed("PrimaryThumbstick", "LTouch");
+        }
+
+        private static bool IsLeftIndexTriggerPressed()
+        {
+            return IsRawButtonCurrentlyPressed("LIndexTrigger", "LTouch")
+                || IsButtonCurrentlyPressed("PrimaryIndexTrigger", "LTouch")
+                || GetOvrAxis1D("RawAxis1D", "LIndexTrigger", "LTouch") >= AnalogPressThreshold
+                || GetOvrAxis1D("Axis1D", "PrimaryIndexTrigger", "LTouch") >= AnalogPressThreshold
+                || GetXrAnalogButtonPressed(XRNode.LeftHand, CommonUsages.triggerButton, CommonUsages.trigger);
+        }
+
+        private static bool IsRightIndexTriggerPressed()
+        {
+            return IsRawButtonCurrentlyPressed("RIndexTrigger", "RTouch")
+                || IsButtonCurrentlyPressed("PrimaryIndexTrigger", "RTouch")
+                || IsButtonCurrentlyPressed("SecondaryIndexTrigger", "RTouch")
+                || GetOvrAxis1D("RawAxis1D", "RIndexTrigger", "RTouch") >= AnalogPressThreshold
+                || GetOvrAxis1D("Axis1D", "PrimaryIndexTrigger", "RTouch") >= AnalogPressThreshold
+                || GetOvrAxis1D("Axis1D", "SecondaryIndexTrigger", "RTouch") >= AnalogPressThreshold
+                || GetXrAnalogButtonPressed(XRNode.RightHand, CommonUsages.triggerButton, CommonUsages.trigger);
+        }
+
+        private static bool IsRawButtonCurrentlyPressed(string rawButtonName, string controllerName = "Active")
+        {
+            return InvokeOvrInputBoolMethod("RawButton", rawButtonName, controllerName)
+                || GetXrRawButtonPressed(rawButtonName);
+        }
+
+        private static bool IsButtonCurrentlyPressed(string buttonName, string controllerName = "Active")
+        {
+            return InvokeOvrInputBoolMethod("Button", buttonName, controllerName)
+                || GetXrVirtualButtonPressed(buttonName, controllerName);
+        }
+
+        private static bool GetButtonEdge(string key, bool isPressed, ButtonEdge edge)
+        {
+            if (!ButtonEdgeStates.TryGetValue(key, out ButtonEdgeState state))
+            {
+                state = new ButtonEdgeState();
+                ButtonEdgeStates[key] = state;
+            }
+
+            int frame = Time.frameCount;
+            if (state.Frame != frame)
+            {
+                state.Previous = state.Frame < 0 ? false : state.Current;
+                state.Current = isPressed;
+                state.Frame = frame;
+            }
+
+            return edge == ButtonEdge.Down
+                ? state.Current && !state.Previous
+                : !state.Current && state.Previous;
+        }
+
+        private static bool GetXrRawButtonPressed(string rawButtonName)
+        {
+            switch (rawButtonName)
+            {
+                case "A":
+                    return GetXrButtonPressed(XRNode.RightHand, CommonUsages.primaryButton);
+                case "B":
+                    return GetXrButtonPressed(XRNode.RightHand, CommonUsages.secondaryButton);
+                case "X":
+                    return GetXrButtonPressed(XRNode.LeftHand, CommonUsages.primaryButton);
+                case "Y":
+                    return GetXrButtonPressed(XRNode.LeftHand, CommonUsages.secondaryButton);
+                case "LIndexTrigger":
+                    return GetXrAnalogButtonPressed(XRNode.LeftHand, CommonUsages.triggerButton, CommonUsages.trigger);
+                case "RIndexTrigger":
+                    return GetXrAnalogButtonPressed(XRNode.RightHand, CommonUsages.triggerButton, CommonUsages.trigger);
+                case "LHandTrigger":
+                    return GetXrAnalogButtonPressed(XRNode.LeftHand, CommonUsages.gripButton, CommonUsages.grip);
+                case "RHandTrigger":
+                    return GetXrAnalogButtonPressed(XRNode.RightHand, CommonUsages.gripButton, CommonUsages.grip);
+                case "LThumbstick":
+                    return GetXrButtonPressed(XRNode.LeftHand, CommonUsages.primary2DAxisClick);
+                case "RThumbstick":
+                    return GetXrButtonPressed(XRNode.RightHand, CommonUsages.primary2DAxisClick);
+                case "LThumbstickUp":
+                    return GetThumbstickDirectionPressed(XRNode.LeftHand, "LTouch", "LThumbstick", StickDirection.Up);
+                case "LThumbstickDown":
+                    return GetThumbstickDirectionPressed(XRNode.LeftHand, "LTouch", "LThumbstick", StickDirection.Down);
+                case "LThumbstickLeft":
+                    return GetThumbstickDirectionPressed(XRNode.LeftHand, "LTouch", "LThumbstick", StickDirection.Left);
+                case "LThumbstickRight":
+                    return GetThumbstickDirectionPressed(XRNode.LeftHand, "LTouch", "LThumbstick", StickDirection.Right);
+                case "RThumbstickUp":
+                    return GetThumbstickDirectionPressed(XRNode.RightHand, "RTouch", "RThumbstick", StickDirection.Up);
+                case "RThumbstickDown":
+                    return GetThumbstickDirectionPressed(XRNode.RightHand, "RTouch", "RThumbstick", StickDirection.Down);
+                case "RThumbstickLeft":
+                    return GetThumbstickDirectionPressed(XRNode.RightHand, "RTouch", "RThumbstick", StickDirection.Left);
+                case "RThumbstickRight":
+                    return GetThumbstickDirectionPressed(XRNode.RightHand, "RTouch", "RThumbstick", StickDirection.Right);
+                default:
+                    return false;
+            }
+        }
+
+        private static bool GetXrVirtualButtonPressed(string buttonName, string controllerName)
+        {
+            XRNode node = string.Equals(controllerName, "RTouch", StringComparison.OrdinalIgnoreCase)
+                ? XRNode.RightHand
+                : XRNode.LeftHand;
+
+            switch (buttonName)
+            {
+                case "One":
+                    return GetXrButtonPressed(XRNode.RightHand, CommonUsages.primaryButton);
+                case "Two":
+                    return GetXrButtonPressed(XRNode.RightHand, CommonUsages.secondaryButton);
+                case "Three":
+                    return GetXrButtonPressed(XRNode.LeftHand, CommonUsages.primaryButton);
+                case "Four":
+                    return GetXrButtonPressed(XRNode.LeftHand, CommonUsages.secondaryButton);
+                case "PrimaryIndexTrigger":
+                    return GetXrAnalogButtonPressed(node, CommonUsages.triggerButton, CommonUsages.trigger);
+                case "PrimaryHandTrigger":
+                    return GetXrAnalogButtonPressed(node, CommonUsages.gripButton, CommonUsages.grip);
+                case "PrimaryThumbstick":
+                    return GetXrButtonPressed(node, CommonUsages.primary2DAxisClick);
+                case "PrimaryThumbstickUp":
+                    return GetThumbstickDirectionPressed(node, controllerName, GetRawThumbstickAxisName(node), StickDirection.Up);
+                case "PrimaryThumbstickDown":
+                    return GetThumbstickDirectionPressed(node, controllerName, GetRawThumbstickAxisName(node), StickDirection.Down);
+                case "PrimaryThumbstickLeft":
+                    return GetThumbstickDirectionPressed(node, controllerName, GetRawThumbstickAxisName(node), StickDirection.Left);
+                case "PrimaryThumbstickRight":
+                    return GetThumbstickDirectionPressed(node, controllerName, GetRawThumbstickAxisName(node), StickDirection.Right);
+                case "SecondaryIndexTrigger":
+                    return GetXrAnalogButtonPressed(XRNode.RightHand, CommonUsages.triggerButton, CommonUsages.trigger);
+                case "SecondaryHandTrigger":
+                    return GetXrAnalogButtonPressed(XRNode.RightHand, CommonUsages.gripButton, CommonUsages.grip);
+                case "SecondaryThumbstick":
+                    return GetXrButtonPressed(XRNode.RightHand, CommonUsages.primary2DAxisClick);
+                case "SecondaryThumbstickUp":
+                    return GetThumbstickDirectionPressed(XRNode.RightHand, "RTouch", "RThumbstick", StickDirection.Up);
+                case "SecondaryThumbstickDown":
+                    return GetThumbstickDirectionPressed(XRNode.RightHand, "RTouch", "RThumbstick", StickDirection.Down);
+                case "SecondaryThumbstickLeft":
+                    return GetThumbstickDirectionPressed(XRNode.RightHand, "RTouch", "RThumbstick", StickDirection.Left);
+                case "SecondaryThumbstickRight":
+                    return GetThumbstickDirectionPressed(XRNode.RightHand, "RTouch", "RThumbstick", StickDirection.Right);
+                default:
+                    return false;
+            }
+        }
+
+        private static string GetRawThumbstickAxisName(XRNode node)
+        {
+            return node == XRNode.RightHand ? "RThumbstick" : "LThumbstick";
+        }
+
+        private static bool GetThumbstickDirectionPressed(XRNode node, string controllerName, string rawAxisName, StickDirection direction)
+        {
+            Vector2 axis = GetOvrAxis2D("RawAxis2D", rawAxisName, controllerName);
+            if (axis.sqrMagnitude <= 0.001f)
+            {
+                axis = GetXrPrimary2DAxis(node);
+            }
+
+            switch (direction)
+            {
+                case StickDirection.Up:
+                    return axis.y >= ThumbstickDirectionThreshold && Mathf.Abs(axis.y) >= Mathf.Abs(axis.x);
+                case StickDirection.Down:
+                    return axis.y <= -ThumbstickDirectionThreshold && Mathf.Abs(axis.y) >= Mathf.Abs(axis.x);
+                case StickDirection.Left:
+                    return axis.x <= -ThumbstickDirectionThreshold && Mathf.Abs(axis.x) >= Mathf.Abs(axis.y);
+                case StickDirection.Right:
+                    return axis.x >= ThumbstickDirectionThreshold && Mathf.Abs(axis.x) >= Mathf.Abs(axis.y);
+                default:
+                    return false;
+            }
+        }
+
+        private static bool GetXrButtonPressed(XRNode node, InputFeatureUsage<bool> usage)
+        {
+            InputDevice device = InputDevices.GetDeviceAtXRNode(node);
+            return device.isValid && device.TryGetFeatureValue(usage, out bool pressed) && pressed;
+        }
+
+        private static bool GetXrAnalogButtonPressed(XRNode node, InputFeatureUsage<bool> buttonUsage, InputFeatureUsage<float> axisUsage)
+        {
+            if (GetXrButtonPressed(node, buttonUsage))
+            {
+                return true;
+            }
+
+            InputDevice device = InputDevices.GetDeviceAtXRNode(node);
+            return device.isValid
+                && device.TryGetFeatureValue(axisUsage, out float value)
+                && value >= AnalogPressThreshold;
+        }
+
+        private static Vector2 GetXrPrimary2DAxis(XRNode node)
+        {
+            InputDevice device = InputDevices.GetDeviceAtXRNode(node);
+            return device.isValid && device.TryGetFeatureValue(CommonUsages.primary2DAxis, out Vector2 axis)
+                ? axis
+                : Vector2.zero;
         }
 
         public static bool TryGetLeftControllerRay(out Ray ray)
@@ -326,7 +569,25 @@ namespace CloserXR.SalesNegotiator
             return true;
         }
 
-        private static bool InvokeOvrInputEnumMethod(
+        private static bool InvokeOvrInputBoolMethod(string enumTypeName, string enumValueName, string controllerName = "Active")
+        {
+            object result = InvokeOvrInputEnumMethod("Get", enumTypeName, enumValueName, controllerName);
+            return result is bool pressed && pressed;
+        }
+
+        private static float GetOvrAxis1D(string enumTypeName, string enumValueName, string controllerName = "Active")
+        {
+            object result = InvokeOvrInputEnumMethod("Get", enumTypeName, enumValueName, controllerName);
+            return result is float value ? value : 0f;
+        }
+
+        private static Vector2 GetOvrAxis2D(string enumTypeName, string enumValueName, string controllerName = "Active")
+        {
+            object result = InvokeOvrInputEnumMethod("Get", enumTypeName, enumValueName, controllerName);
+            return result is Vector2 value ? value : Vector2.zero;
+        }
+
+        private static object InvokeOvrInputEnumMethod(
             string methodName,
             string enumTypeName,
             string enumValueName,
@@ -334,13 +595,13 @@ namespace CloserXR.SalesNegotiator
         {
             if (!TryGetOvrInputEnumValue(enumTypeName, enumValueName, out Type enumType, out object enumValue))
             {
-                return false;
+                return null;
             }
 
             MethodInfo method = GetOvrInputMethod(methodName, enumType);
             if (method == null)
             {
-                return false;
+                return null;
             }
 
             ParameterInfo[] parameters = method.GetParameters();
@@ -348,8 +609,7 @@ namespace CloserXR.SalesNegotiator
                 ? new[] { enumValue }
                 : new[] { enumValue, GetOvrInputControllerArgument(parameters[1], controllerName) };
 
-            object result = method.Invoke(null, arguments);
-            return result is bool pressed && pressed;
+            return method.Invoke(null, arguments);
         }
 
         private static MethodInfo GetOvrInputMethod(string methodName, Type enumType)

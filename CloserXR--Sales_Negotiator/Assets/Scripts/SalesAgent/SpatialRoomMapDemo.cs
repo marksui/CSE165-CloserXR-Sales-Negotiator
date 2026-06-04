@@ -10,10 +10,10 @@ namespace CloserXR.SalesNegotiator
     {
         [SerializeField] private bool showRoomOutline = true;
         [SerializeField] private bool preferQuestGuardianBoundary = true;
-        [SerializeField] private Vector2 fallbackRoomSize = new Vector2(4f, 5f);
-        [SerializeField] private float fallbackForwardOffset = 1.25f;
+        [SerializeField] private Vector2 fallbackRoomSize = new Vector2(8f, 10f);
+        [SerializeField] private float fallbackForwardOffset = 2.5f;
         [SerializeField] private float wallHeight = 2.4f;
-        [SerializeField] private int floorGridDivisions = 4;
+        [SerializeField] private int floorGridDivisions = 6;
         [SerializeField] private float lineWidth = 0.025f;
         [SerializeField] private Color floorColor = new Color(0.05f, 0.95f, 0.8f, 0.7f);
         [SerializeField] private Color wallColor = new Color(0.2f, 0.55f, 1f, 0.55f);

@@ -1749,10 +1749,10 @@ MonoBehaviour:
   m_EditorClassIdentifier:
   showRoomOutline: 1
   preferQuestGuardianBoundary: 1
-  fallbackRoomSize: {x: 4, y: 5}
-  fallbackForwardOffset: 1.25
+  fallbackRoomSize: {x: 8, y: 10}
+  fallbackForwardOffset: 2.5
   wallHeight: 2.4
-  floorGridDivisions: 4
+  floorGridDivisions: 6
   lineWidth: 0.025
   floorColor: {r: 0.05, g: 0.95, b: 0.8, a: 0.7}
   wallColor: {r: 0.2, g: 0.55, b: 1, a: 0.55}
