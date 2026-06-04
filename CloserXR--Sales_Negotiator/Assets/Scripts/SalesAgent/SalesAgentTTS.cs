@@ -170,13 +170,16 @@ namespace CloserXR.SalesNegotiator
             {
                 AndroidJavaClass playerClass = new AndroidJavaClass("com.unity3d.player.UnityPlayer");
                 AndroidJavaObject activity = playerClass.GetStatic<AndroidJavaObject>("currentActivity");
+                // Application context is required for TTS on Quest — using the Activity directly causes status -1.
+                AndroidJavaObject appContext = activity.Call<AndroidJavaObject>("getApplicationContext");
                 _tts = new AndroidJavaObject(
                     "android.speech.tts.TextToSpeech",
-                    activity,
+                    appContext,
                     new TTSInitListener(OnTTSInitialized));
             }
             catch (Exception e)
             {
+                DiagnosticStatus = $"TTS init exception: {e.Message}";
                 Debug.LogWarning($"[SalesAgentTTS] Failed to initialize Android TTS: {e.Message}");
             }
 #endif
