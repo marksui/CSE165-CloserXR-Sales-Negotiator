@@ -1648,6 +1648,7 @@ MonoBehaviour:
   celebrateTrigger: Celebrate
   sadTrigger: Sad
   resetTrigger: Reset
+  gestureLockSeconds: 1.35
 --- !u!114 &3967881765551471407
 MonoBehaviour:
   m_ObjectHideFlags: 0

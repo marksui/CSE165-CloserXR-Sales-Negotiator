@@ -26,6 +26,7 @@ namespace CloserXR.SalesNegotiator
         [SerializeField] private string celebrateTrigger = "Celebrate";
         [SerializeField] private string sadTrigger = "Sad";
         [SerializeField] private string resetTrigger = "Reset";
+        [SerializeField] private float gestureLockSeconds = 1.35f;
 
         private int talkingHash;
         private int walkingHash;
@@ -35,6 +36,7 @@ namespace CloserXR.SalesNegotiator
         private int celebrateHash;
         private int sadHash;
         private int resetHash;
+        private float gestureLockUntil;
 
         private void Reset()
         {
@@ -80,6 +82,12 @@ namespace CloserXR.SalesNegotiator
 
         public void SetWalking(bool isWalking)
         {
+            if (isWalking && IsGestureLocked)
+            {
+                SetBool(walkingHash, AnimatorControllerParameterType.Bool, false);
+                return;
+            }
+
             SetBool(walkingHash, AnimatorControllerParameterType.Bool, isWalking);
 
             if (isWalking)
@@ -112,33 +120,37 @@ namespace CloserXR.SalesNegotiator
 
         public void Point()
         {
+            BeginGesture();
             SetTrigger(pointHash);
         }
 
         public void Argue()
         {
+            BeginGesture();
             SetTrigger(argueHash);
         }
 
         public void Dismiss()
         {
+            BeginGesture();
             SetTrigger(dismissHash);
         }
 
         public void Celebrate()
         {
+            BeginGesture();
             SetTrigger(celebrateHash);
         }
 
         public void Sad()
         {
-            SetBool(talkingHash, AnimatorControllerParameterType.Bool, false);
-            SetBool(walkingHash, AnimatorControllerParameterType.Bool, false);
+            BeginGesture();
             SetTrigger(sadHash);
         }
 
         public void ResetToIdle()
         {
+            gestureLockUntil = 0f;
             SetBool(talkingHash, AnimatorControllerParameterType.Bool, false);
             SetBool(walkingHash, AnimatorControllerParameterType.Bool, false);
             SetTrigger(resetHash);
@@ -164,6 +176,15 @@ namespace CloserXR.SalesNegotiator
             celebrateHash = Animator.StringToHash(celebrateTrigger);
             sadHash = Animator.StringToHash(sadTrigger);
             resetHash = Animator.StringToHash(resetTrigger);
+        }
+
+        private bool IsGestureLocked => Time.time < gestureLockUntil;
+
+        private void BeginGesture()
+        {
+            gestureLockUntil = Time.time + Mathf.Max(0.1f, gestureLockSeconds);
+            SetBool(talkingHash, AnimatorControllerParameterType.Bool, false);
+            SetBool(walkingHash, AnimatorControllerParameterType.Bool, false);
         }
 
         private void SetBool(int parameterHash, AnimatorControllerParameterType expectedType, bool value)
