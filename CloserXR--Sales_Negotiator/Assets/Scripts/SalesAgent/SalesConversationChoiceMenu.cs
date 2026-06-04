@@ -1,5 +1,7 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Rendering;
 using UnityEngine.UI;
 
 namespace CloserXR.SalesNegotiator
@@ -8,13 +10,17 @@ namespace CloserXR.SalesNegotiator
     public sealed class SalesConversationChoiceMenu : MonoBehaviour
     {
         [SerializeField] private SalesConversationManager conversationManager;
+        [SerializeField] private SalesAgentAnimator agentAnimator;
+        [SerializeField] private SalesAgentPacer pacer;
         [SerializeField] private Transform userHead;
         [SerializeField] private Vector3 headRelativeOffset = new Vector3(-0.58f, -0.16f, 1.18f);
-        [SerializeField] private Vector2 menuSize = new Vector2(560f, 430f);
+        [SerializeField] private Vector2 menuSize = new Vector2(600f, 510f);
         [SerializeField] private float menuScale = 0.00115f;
         [SerializeField] private float followSharpness = 18f;
         [SerializeField] private float rayLength = 3.5f;
-        [SerializeField] private float rayWidth = 0.012f;
+        [SerializeField] private float rayWidth = 0.004f;
+        [SerializeField] private float rayMenuOverdraw = 0.08f;
+        [SerializeField] private int raySortingOrder = 5000;
         [SerializeField] private Color rayColor = new Color(0.1f, 0.45f, 1f, 0.95f);
 
         private static int openMenuCount;
@@ -46,6 +52,7 @@ namespace CloserXR.SalesNegotiator
         private static readonly Color PanelColor = new Color(0.06f, 0.08f, 0.11f, 0.78f);
         private static readonly Color HeaderColor = new Color(0.16f, 0.32f, 0.56f, 0.86f);
         private static readonly Color RowColor = new Color(0.12f, 0.15f, 0.18f, 0.9f);
+        private static readonly Color ActionRowColor = new Color(0.08f, 0.28f, 0.32f, 0.92f);
         private static readonly Color RowHoverColor = new Color(0.08f, 0.36f, 0.72f, 0.96f);
         private static readonly Color RowBorderColor = new Color(0.38f, 0.66f, 1f, 0.44f);
         private static readonly Color TextColor = new Color(0.94f, 0.97f, 1f, 1f);
@@ -57,6 +64,7 @@ namespace CloserXR.SalesNegotiator
         {
             conversationManager = manager;
             userHead = head;
+            AutoWireActionTargets();
         }
 
         private void Awake()
@@ -65,6 +73,8 @@ namespace CloserXR.SalesNegotiator
             {
                 conversationManager = GetComponent<SalesConversationManager>();
             }
+
+            AutoWireActionTargets();
         }
 
         private void LateUpdate()
@@ -111,6 +121,7 @@ namespace CloserXR.SalesNegotiator
 
             canvas = canvasObject.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.WorldSpace;
+            canvas.overrideSorting = true;
             canvas.sortingOrder = 120;
 
             CanvasScaler scaler = canvasObject.AddComponent<CanvasScaler>();
@@ -141,19 +152,26 @@ namespace CloserXR.SalesNegotiator
             agentText = CreateText(panel.transform, "", 14, FontStyle.Normal, MutedTextColor, TextAnchor.UpperLeft);
             SetRect(agentText.rectTransform, new Vector2(18f, -136f), new Vector2(menuSize.x - 36f, 54f));
 
-            float y = 206f;
+            float actionY = 206f;
+            float actionGap = 8f;
+            float actionWidth = (menuSize.x - 36f - actionGap * 2f) / 3f;
+            CreateChoiceRow(panel.transform, choices.Count, "Idle", new Vector2(18f, -actionY), new Vector2(actionWidth, 30f), PlayIdleAction, ActionRowColor);
+            CreateChoiceRow(panel.transform, choices.Count, "Walk", new Vector2(18f + actionWidth + actionGap, -actionY), new Vector2(actionWidth, 30f), PlayWalkAction, ActionRowColor);
+            CreateChoiceRow(panel.transform, choices.Count, "Dance", new Vector2(18f + (actionWidth + actionGap) * 2f, -actionY), new Vector2(actionWidth, 30f), PlayDanceAction, ActionRowColor);
+
+            float y = 248f;
             for (int i = 0; i < quickUserLines.Length; i++)
             {
-                CreateChoiceRow(panel.transform, i, quickUserLines[i], new Vector2(18f, -y), new Vector2(menuSize.x - 36f, 28f));
-                y += 34f;
+                CreateChoiceRow(panel.transform, choices.Count, quickUserLines[i], new Vector2(18f, -y), new Vector2(menuSize.x - 36f, 27f), null, RowColor);
+                y += 31f;
             }
 
             canvasObject.SetActive(menuOpen);
         }
 
-        private void CreateChoiceRow(Transform parent, int index, string line, Vector2 anchoredPosition, Vector2 size)
+        private void CreateChoiceRow(Transform parent, int index, string line, Vector2 anchoredPosition, Vector2 size, Action action, Color normalColor)
         {
-            Image rowImage = CreateBlock(parent, "Choice " + index, anchoredPosition, size, RowColor);
+            Image rowImage = CreateBlock(parent, "Choice " + index, anchoredPosition, size, normalColor);
             Outline outline = rowImage.gameObject.AddComponent<Outline>();
             outline.effectColor = RowBorderColor;
             outline.effectDistance = new Vector2(0.75f, -0.75f);
@@ -169,7 +187,9 @@ namespace CloserXR.SalesNegotiator
             {
                 Rect = rowImage.rectTransform,
                 Image = rowImage,
-                Line = line
+                Line = line,
+                Action = action,
+                NormalColor = normalColor
             });
         }
 
@@ -231,7 +251,7 @@ namespace CloserXR.SalesNegotiator
                 if (menuPlane.Raycast(ray, out float hitDistance) && hitDistance > 0f && hitDistance <= rayLength)
                 {
                     Vector3 hitPoint = ray.GetPoint(hitDistance);
-                    endDistance = hitDistance;
+                    endDistance = Mathf.Min(rayLength, hitDistance + rayMenuOverdraw);
                     nextHoveredChoice = FindChoiceAt(hitPoint);
                 }
             }
@@ -262,7 +282,16 @@ namespace CloserXR.SalesNegotiator
                 return;
             }
 
-            conversationManager?.SubmitUserText(choices[hoveredChoice].Line);
+            ChoiceRow choice = choices[hoveredChoice];
+            if (choice.Action != null)
+            {
+                choice.Action.Invoke();
+            }
+            else
+            {
+                conversationManager?.SubmitUserText(choice.Line);
+            }
+
             SetMenuOpen(false);
         }
 
@@ -276,7 +305,7 @@ namespace CloserXR.SalesNegotiator
             hoveredChoice = index;
             for (int i = 0; i < choices.Count; i++)
             {
-                choices[i].Image.color = i == hoveredChoice ? RowHoverColor : RowColor;
+                choices[i].Image.color = i == hoveredChoice ? RowHoverColor : choices[i].NormalColor;
             }
         }
 
@@ -339,8 +368,14 @@ namespace CloserXR.SalesNegotiator
             rayLine.numCapVertices = 6;
             rayLine.startColor = rayColor;
             rayLine.endColor = rayColor;
+            rayLine.sortingOrder = raySortingOrder;
 
-            Shader shader = Shader.Find("Sprites/Default");
+            Shader shader = Shader.Find("Hidden/Internal-Colored");
+            if (shader == null)
+            {
+                shader = Shader.Find("Sprites/Default");
+            }
+
             if (shader == null)
             {
                 shader = Shader.Find("Unlit/Color");
@@ -348,10 +383,67 @@ namespace CloserXR.SalesNegotiator
 
             if (shader != null)
             {
-                rayLine.material = new Material(shader);
+                Material rayMaterial = new Material(shader);
+                rayMaterial.renderQueue = (int)RenderQueue.Overlay;
+
+                if (rayMaterial.HasProperty("_ZTest"))
+                {
+                    rayMaterial.SetInt("_ZTest", (int)CompareFunction.Always);
+                }
+
+                if (rayMaterial.HasProperty("_ZWrite"))
+                {
+                    rayMaterial.SetInt("_ZWrite", 0);
+                }
+
+                if (rayMaterial.HasProperty("_SrcBlend"))
+                {
+                    rayMaterial.SetInt("_SrcBlend", (int)BlendMode.SrcAlpha);
+                }
+
+                if (rayMaterial.HasProperty("_DstBlend"))
+                {
+                    rayMaterial.SetInt("_DstBlend", (int)BlendMode.OneMinusSrcAlpha);
+                }
+
+                rayLine.material = rayMaterial;
             }
 
             rayObject.SetActive(false);
+        }
+
+        private void PlayIdleAction()
+        {
+            AutoWireActionTargets();
+            pacer?.GoIdle();
+            agentAnimator?.ResetToIdle();
+        }
+
+        private void PlayWalkAction()
+        {
+            AutoWireActionTargets();
+            agentAnimator?.ResetToIdle();
+            pacer?.StartManualPacing();
+        }
+
+        private void PlayDanceAction()
+        {
+            AutoWireActionTargets();
+            pacer?.GoIdle();
+            agentAnimator?.Dance();
+        }
+
+        private void AutoWireActionTargets()
+        {
+            if (agentAnimator == null)
+            {
+                agentAnimator = GetComponent<SalesAgentAnimator>();
+            }
+
+            if (pacer == null)
+            {
+                pacer = GetComponent<SalesAgentPacer>();
+            }
         }
 
         private Image CreateBlock(Transform parent, string name, Vector2 anchoredPosition, Vector2 size, Color color)
@@ -456,6 +548,8 @@ namespace CloserXR.SalesNegotiator
             public RectTransform Rect;
             public Image Image;
             public string Line;
+            public Action Action;
+            public Color NormalColor;
         }
     }
 }

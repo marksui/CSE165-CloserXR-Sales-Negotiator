@@ -14,6 +14,7 @@ namespace CloserXR.SalesNegotiator
         [SerializeField] private float moveSpeed = 1.5f;
         [SerializeField] private float turnSpeed = 8f;
         [SerializeField] private bool keepAgentWorldAnchored = true;
+        [SerializeField] private bool automaticPacingFromConversation;
 
         private float desiredDistance;
         private float desiredWidth;
@@ -42,7 +43,10 @@ namespace CloserXR.SalesNegotiator
 
         public void SetIntent(SalesIntent intent)
         {
-            active = true;
+            if (automaticPacingFromConversation)
+            {
+                active = true;
+            }
 
             switch (intent)
             {
@@ -61,6 +65,14 @@ namespace CloserXR.SalesNegotiator
                     desiredWidth = pacingWidth;
                     break;
             }
+        }
+
+        public void StartManualPacing()
+        {
+            active = true;
+            desiredDistance = neutralDistance;
+            desiredWidth = Mathf.Max(0.25f, pacingWidth);
+            agentAnimator?.SetWalking(true);
         }
 
         public void GoIdle()
@@ -112,7 +124,7 @@ namespace CloserXR.SalesNegotiator
                 transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, turnSpeed * Time.deltaTime);
             }
 
-            bool isMoving = active && Vector3.Distance(before, transform.position) > 0.002f;
+            bool isMoving = active && (desiredWidth > 0.01f || Vector3.Distance(before, transform.position) > 0.002f);
             agentAnimator?.SetWalking(isMoving);
         }
 
@@ -130,7 +142,7 @@ namespace CloserXR.SalesNegotiator
             transform.position = Vector3.MoveTowards(transform.position, target, moveSpeed * Time.deltaTime);
             FaceUser();
 
-            bool isMoving = active && Vector3.Distance(before, transform.position) > 0.002f;
+            bool isMoving = active && (desiredWidth > 0.01f || Vector3.Distance(before, transform.position) > 0.002f);
             agentAnimator?.SetWalking(isMoving);
         }
 

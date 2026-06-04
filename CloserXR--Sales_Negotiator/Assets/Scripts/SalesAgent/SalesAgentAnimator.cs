@@ -8,7 +8,8 @@ namespace CloserXR.SalesNegotiator
         Argue,
         Dismiss,
         Celebrate,
-        Sad
+        Sad,
+        Dance
     }
 
     [DisallowMultipleComponent]
@@ -27,6 +28,7 @@ namespace CloserXR.SalesNegotiator
         [SerializeField] private string sadTrigger = "Sad";
         [SerializeField] private string resetTrigger = "Reset";
         [SerializeField] private float gestureLockSeconds = 1.35f;
+        [SerializeField] private float danceLockSeconds = 8.5f;
 
         private int talkingHash;
         private int walkingHash;
@@ -115,6 +117,9 @@ namespace CloserXR.SalesNegotiator
                 case SalesAgentGesture.Sad:
                     Sad();
                     break;
+                case SalesAgentGesture.Dance:
+                    Dance();
+                    break;
             }
         }
 
@@ -139,6 +144,12 @@ namespace CloserXR.SalesNegotiator
         public void Celebrate()
         {
             BeginGesture();
+            SetTrigger(celebrateHash);
+        }
+
+        public void Dance()
+        {
+            BeginGesture(danceLockSeconds);
             SetTrigger(celebrateHash);
         }
 
@@ -182,7 +193,12 @@ namespace CloserXR.SalesNegotiator
 
         private void BeginGesture()
         {
-            gestureLockUntil = Time.time + Mathf.Max(0.1f, gestureLockSeconds);
+            BeginGesture(gestureLockSeconds);
+        }
+
+        private void BeginGesture(float lockSeconds)
+        {
+            gestureLockUntil = Time.time + Mathf.Max(0.1f, lockSeconds);
             SetBool(talkingHash, AnimatorControllerParameterType.Bool, false);
             SetBool(walkingHash, AnimatorControllerParameterType.Bool, false);
         }
