@@ -5,7 +5,7 @@ namespace CloserXR.SalesNegotiator
 {
     public enum SpeechInputMode
     {
-        PushToTalk,               // hold trigger / Space to record, release to submit
+        PushToTalk,               // tap trigger / Space to record, tap again to submit
         AutoVAD,                  // Option A: amplitude threshold + silence timeout
         AndroidSpeechRecognizer   // Option B: Android STT (device only, editor falls back to AutoVAD)
     }
@@ -14,7 +14,7 @@ namespace CloserXR.SalesNegotiator
     public sealed class PushToTalkSpeechInput : MonoBehaviour
     {
         [Header("Mode")]
-        [SerializeField] private SpeechInputMode mode = SpeechInputMode.AutoVAD;
+        [SerializeField] private SpeechInputMode mode = SpeechInputMode.PushToTalk;
 
         [Header("Microphone")]
         [SerializeField] private KeyCode editorRecordKey = KeyCode.Space;
@@ -44,7 +44,7 @@ namespace CloserXR.SalesNegotiator
         private bool inSpeech;
         private int speechStartPos;
         private float silenceTimer;
-        private bool pttOverride; // trigger held in AutoVAD mode
+        private bool pttOverride; // trigger toggle override in AutoVAD mode
 
         // Mute state
         private float muteTimer;
@@ -141,34 +141,36 @@ namespace CloserXR.SalesNegotiator
 
         private void HandlePTTInput()
         {
-            bool triggerDown = useQuestTrigger && QuestRuntimeBridge.GetRightIndexTriggerDown();
-            bool triggerUp = useQuestTrigger && QuestRuntimeBridge.GetRightIndexTriggerUp();
-            bool keyDown     = Input.GetKeyDown(editorRecordKey);
-            bool keyUp       = Input.GetKeyUp(editorRecordKey);
+            bool togglePressed = (useQuestTrigger && QuestRuntimeBridge.GetRightIndexTriggerDown())
+                || Input.GetKeyDown(editorRecordKey);
 
-            bool startPressed = triggerDown || keyDown;
-            bool stopPressed  = triggerUp   || keyUp;
+            if (!togglePressed)
+            {
+                return;
+            }
 
             switch (mode)
             {
                 case SpeechInputMode.PushToTalk:
-                    if (startPressed && !IsRecording) StartPTTRecording();
-                    if (stopPressed  &&  IsRecording) StopPTTAndSubmit();
+                    if (IsRecording)
+                    {
+                        StopPTTAndSubmit();
+                    }
+                    else
+                    {
+                        StartPTTRecording();
+                    }
                     break;
 
                 case SpeechInputMode.AutoVAD:
-                    // Trigger acts as a force-start / force-submit override.
-                    if (startPressed && !pttOverride)
+                    // Trigger acts as a tap-to-start / tap-to-submit override.
+                    if (pttOverride || IsRecording || inSpeech)
                     {
-                        pttOverride = true;
-                        ForceVADStart();
+                        StopVADOverrideAndSubmit();
                     }
-                    if (stopPressed && pttOverride)
+                    else
                     {
-                        pttOverride = false;
-                        if (inSpeech) ExtractAndSubmit();
-                        inSpeech = false;
-                        IsRecording = false;
+                        pttOverride = ForceVADStart();
                     }
                     break;
 
@@ -267,9 +269,9 @@ namespace CloserXR.SalesNegotiator
             }
         }
 
-        private void ForceVADStart()
+        private bool ForceVADStart()
         {
-            if (micClip == null) return;
+            if (micClip == null) return false;
             inSpeech = true;
             IsRecording = true;
             silenceTimer = 0f;
@@ -277,6 +279,19 @@ namespace CloserXR.SalesNegotiator
             int totalSamples = micClip.samples;
             int pos = Microphone.GetPosition(deviceName);
             speechStartPos = (pos - preRoll + totalSamples) % totalSamples;
+            return true;
+        }
+
+        private void StopVADOverrideAndSubmit()
+        {
+            pttOverride = false;
+            if (inSpeech)
+            {
+                ExtractAndSubmit();
+            }
+
+            inSpeech = false;
+            IsRecording = false;
         }
 
         private float SampleAmplitude()

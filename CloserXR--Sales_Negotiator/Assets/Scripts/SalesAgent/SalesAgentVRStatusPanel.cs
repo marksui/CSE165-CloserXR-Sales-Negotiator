@@ -135,7 +135,7 @@ namespace CloserXR.SalesNegotiator
             Text controls = CreateText(panelRect, "Controls", 19, FontStyle.Normal, BodyColor, TextAnchor.UpperLeft);
             SetRect(controls.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(34f, -56f), new Vector2(466f, 70f));
             controls.text =
-                "Trigger  Hold to talk\n" +
+                "Right trigger  Record / Stop\n" +
                 "A Policy   B Premium   X Family   Y Accept\n" +
                 "Right stick  Coverage / Reject / Term / Maybe";
 
@@ -208,7 +208,7 @@ namespace CloserXR.SalesNegotiator
                 micStatus = Mathf.Sin(Time.time * 3f) > 0f ? "◌ Listening" : "  Listening";
             else
                 micStatus = speechInput != null && speechInput.Mode == SpeechInputMode.PushToTalk
-                    ? "Hold trigger"
+                    ? "Tap right trigger"
                     : "Idle";
             string geminiStatus = hasGeminiKey ? "Connected" : "Local fallback";
 
