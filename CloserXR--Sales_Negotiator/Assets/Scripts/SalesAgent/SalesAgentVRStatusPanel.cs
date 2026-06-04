@@ -78,12 +78,15 @@ namespace CloserXR.SalesNegotiator
             UpdateText();
         }
 
+        private SalesAgentTTS tts;
+
         private void AutoWire()
         {
             conversationManager = conversationManager != null ? conversationManager : GetComponent<SalesConversationManager>();
             speechInput = speechInput != null ? speechInput : GetComponent<PushToTalkSpeechInput>();
             geminiClient = geminiClient != null ? geminiClient : GetComponent<GeminiSalesClient>();
             roomMap = roomMap != null ? roomMap : GetComponent<SpatialRoomMapDemo>();
+            tts = tts != null ? tts : GetComponent<SalesAgentTTS>();
             userHead = userHead != null ? userHead : Camera.main != null ? Camera.main.transform : null;
         }
 
@@ -214,12 +217,14 @@ namespace CloserXR.SalesNegotiator
             string geminiStatus = hasGeminiKey ? "Connected" : "Local fallback";
             string roomStatus = roomMap != null && roomMap.HasRoomBounds ? roomMap.BoundarySourceLabel : "Searching";
 
+            string ttsStatus = tts != null ? tts.DiagnosticStatus : "None";
+
             statusText.text =
                 $"Agent: {agentStatus}\n" +
                 $"Gemini: {geminiStatus}\n" +
+                $"TTS: {ttsStatus}\n" +
                 $"Mic: {micStatus}\n" +
-                $"Room: {roomStatus}\n" +
-                "Mode: Passthrough MR";
+                $"Room: {roomStatus}";
 
             string userText = conversationManager != null ? conversationManager.LastUserText : "";
             string agentText = conversationManager != null ? conversationManager.LastAgentText : "";

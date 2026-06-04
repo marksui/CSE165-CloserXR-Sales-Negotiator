@@ -25,9 +25,16 @@ namespace CloserXR.SalesNegotiator
         private volatile bool _ttsReady;
 #endif
 
+        public string DiagnosticStatus { get; private set; } = "Not initialized";
+
         private void Awake()
         {
             _animator = GetComponent<SalesAgentAnimator>();
+#if UNITY_ANDROID && !UNITY_EDITOR
+            DiagnosticStatus = "Initializing...";
+#else
+            DiagnosticStatus = "Editor (no audio)";
+#endif
             InitAndroidTTS();
         }
 
@@ -97,7 +104,13 @@ namespace CloserXR.SalesNegotiator
                     int langResult = _tts.Call<int>("setLanguage", localeUS);
                     if (langResult < 0)
                     {
-                        Debug.LogWarning($"[SalesAgentTTS] setLanguage returned {langResult} — voice may be missing.");
+                        DiagnosticStatus = langResult == -2
+                            ? "Missing voice data (install TTS in Quest Settings)"
+                            : $"Language error ({langResult})";
+                    }
+                    else
+                    {
+                        DiagnosticStatus = "Speaking";
                     }
 
                     _tts.Call<int>("setSpeechRate", speechRate);
@@ -109,7 +122,7 @@ namespace CloserXR.SalesNegotiator
                 }
                 catch (Exception e)
                 {
-                    Debug.LogWarning($"[SalesAgentTTS] speak() failed: {e.Message}");
+                    DiagnosticStatus = $"Error: {e.Message}";
                 }
             }
 #endif
@@ -118,6 +131,9 @@ namespace CloserXR.SalesNegotiator
             yield return new WaitForSeconds(duration);
 
             _speakRoutine = null;
+#if UNITY_ANDROID && !UNITY_EDITOR
+            if (_ttsReady) DiagnosticStatus = "Ready";
+#endif
             onComplete?.Invoke();
         }
 
@@ -170,10 +186,7 @@ namespace CloserXR.SalesNegotiator
         {
 #if UNITY_ANDROID && !UNITY_EDITOR
             _ttsReady = (status == 0);
-            if (!_ttsReady)
-            {
-                Debug.LogWarning("[SalesAgentTTS] Android TTS init failed (status != SUCCESS).");
-            }
+            DiagnosticStatus = _ttsReady ? "Ready" : $"Init failed (status {status})";
 #endif
         }
 
