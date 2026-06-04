@@ -91,9 +91,21 @@ namespace CloserXR.SalesNegotiator
             {
                 try
                 {
+                    // setLanguage must be called before speak — TTS silently does nothing without it.
+                    AndroidJavaObject localeUS = new AndroidJavaClass("java.util.Locale")
+                        .GetStatic<AndroidJavaObject>("US");
+                    int langResult = _tts.Call<int>("setLanguage", localeUS);
+                    if (langResult < 0)
+                    {
+                        Debug.LogWarning($"[SalesAgentTTS] setLanguage returned {langResult} — voice may be missing.");
+                    }
+
                     _tts.Call<int>("setSpeechRate", speechRate);
                     _tts.Call<int>("setPitch", pitch);
-                    _tts.Call<int>("speak", text, 0 /* QUEUE_FLUSH */, null);
+
+                    // Use the API 21+ 4-param speak() — the deprecated 3-param form with a
+                    // null HashMap silently fails on Quest (API 29+).
+                    _tts.Call<int>("speak", text, 0 /* QUEUE_FLUSH */, null, "closerxr");
                 }
                 catch (Exception e)
                 {

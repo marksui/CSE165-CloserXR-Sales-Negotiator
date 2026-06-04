@@ -1,3 +1,6 @@
+# Claude
+.claude/
+
 # Secrets — never commit real API keys
 .env
 *.env
