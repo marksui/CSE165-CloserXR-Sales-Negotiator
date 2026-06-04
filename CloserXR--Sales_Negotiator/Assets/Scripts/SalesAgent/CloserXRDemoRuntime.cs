@@ -8,7 +8,6 @@ namespace CloserXR.SalesNegotiator
         [SerializeField] private bool bootstrapOnAwake = true;
         [SerializeField] private bool enablePassthrough = true;
         [SerializeField] private bool enableSpatialAnchorOnDevice = true;
-        [SerializeField] private bool enableRoomOutlineDemo = true;
         [SerializeField] private bool useProject3HeadTrackedView = true;
         [SerializeField] private bool enableVrStatusPanel = true;
         [SerializeField] private bool enableRoomCameraControls = true;
@@ -48,7 +47,6 @@ namespace CloserXR.SalesNegotiator
             GeminiSalesClient gemini = GetOrAdd<GeminiSalesClient>();
             SalesAgentPacer pacer = GetOrAdd<SalesAgentPacer>();
             SalesAgentTTS tts = GetOrAdd<SalesAgentTTS>();
-            SpatialRoomMapDemo roomMap = enableRoomOutlineDemo ? GetOrAdd<SpatialRoomMapDemo>() : null;
             SalesConversationManager conversation = GetOrAdd<SalesConversationManager>();
             PushToTalkSpeechInput speechInput = GetOrAdd<PushToTalkSpeechInput>();
             QuestControllerConversationInput questInput = GetOrAdd<QuestControllerConversationInput>();
@@ -60,13 +58,12 @@ namespace CloserXR.SalesNegotiator
 
             tts.Assign(animator);
             pacer.Assign(animator, mainCamera != null ? mainCamera.transform : null);
-            pacer.AssignRoomMap(roomMap);
             conversation.Configure(gemini, router, animator, pacer, tts);
             speechInput.Assign(conversation);
             questInput.Assign(conversation);
             choiceMenu.Assign(conversation, mainCamera != null ? mainCamera.transform : null);
             hud.Assign(conversation, speechInput);
-            vrStatusPanel?.Assign(conversation, speechInput, gemini, roomMap, mainCamera != null ? mainCamera.transform : null);
+            vrStatusPanel?.Assign(conversation, speechInput, gemini, mainCamera != null ? mainCamera.transform : null);
             materialStyler.ApplyNow();
             faceFeatures.AssignGazeTarget(mainCamera != null ? mainCamera.transform : null);
             faceFeatures.EnsureFace();

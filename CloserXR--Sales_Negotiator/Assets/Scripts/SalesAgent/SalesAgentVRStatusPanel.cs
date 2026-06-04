@@ -10,7 +10,6 @@ namespace CloserXR.SalesNegotiator
         [SerializeField] private SalesConversationManager conversationManager;
         [SerializeField] private PushToTalkSpeechInput speechInput;
         [SerializeField] private GeminiSalesClient geminiClient;
-        [SerializeField] private SpatialRoomMapDemo roomMap;
         [SerializeField] private Transform userHead;
         [SerializeField] private Vector3 headRelativeOffset = new Vector3(-0.42f, -0.2f, 1.25f);
         [SerializeField] private Vector2 panelSize = new Vector2(520f, 360f);
@@ -46,13 +45,11 @@ namespace CloserXR.SalesNegotiator
             SalesConversationManager conversation,
             PushToTalkSpeechInput input,
             GeminiSalesClient gemini,
-            SpatialRoomMapDemo spatialMap,
             Transform head)
         {
             conversationManager = conversation;
             speechInput = input;
             geminiClient = gemini;
-            roomMap = spatialMap;
             userHead = head;
         }
 
@@ -85,7 +82,6 @@ namespace CloserXR.SalesNegotiator
             conversationManager = conversationManager != null ? conversationManager : GetComponent<SalesConversationManager>();
             speechInput = speechInput != null ? speechInput : GetComponent<PushToTalkSpeechInput>();
             geminiClient = geminiClient != null ? geminiClient : GetComponent<GeminiSalesClient>();
-            roomMap = roomMap != null ? roomMap : GetComponent<SpatialRoomMapDemo>();
             tts = tts != null ? tts : GetComponent<SalesAgentTTS>();
             userHead = userHead != null ? userHead : Camera.main != null ? Camera.main.transform : null;
         }
@@ -215,7 +211,6 @@ namespace CloserXR.SalesNegotiator
                     ? "Hold trigger"
                     : "Idle";
             string geminiStatus = hasGeminiKey ? "Connected" : "Local fallback";
-            string roomStatus = roomMap != null && roomMap.HasRoomBounds ? roomMap.BoundarySourceLabel : "Searching";
 
             string ttsStatus = tts != null ? tts.DiagnosticStatus : "None";
 
@@ -223,8 +218,7 @@ namespace CloserXR.SalesNegotiator
                 $"Agent: {agentStatus}\n" +
                 $"Gemini: {geminiStatus}\n" +
                 $"TTS: {ttsStatus}\n" +
-                $"Mic: {micStatus}\n" +
-                $"Room: {roomStatus}";
+                $"Mic: {micStatus}";
 
             string userText = conversationManager != null ? conversationManager.LastUserText : "";
             string agentText = conversationManager != null ? conversationManager.LastAgentText : "";

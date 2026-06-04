@@ -1574,7 +1574,6 @@ GameObject:
   - component: {fileID: 3967881765551471407}
   - component: {fileID: 6779833012514898472}
   - component: {fileID: 5871437061126402218}
-  - component: {fileID: 4622251673800101888}
   - component: {fileID: 2349598333440088064}
   - component: {fileID: 8797318254058005511}
   - component: {fileID: 8689073668079974566}
@@ -1735,27 +1734,6 @@ MonoBehaviour:
   model: gemini-2.5-flash
   temperature: 0.9
   maxOutputTokens: 180
---- !u!114 &4622251673800101888
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6451866310721777581}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 6dfc2d13b93d49b0be4e7c8433607ac5, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
-  showRoomOutline: 1
-  preferQuestGuardianBoundary: 1
-  fallbackRoomSize: {x: 8, y: 10}
-  fallbackForwardOffset: 2.5
-  wallHeight: 2.4
-  floorGridDivisions: 6
-  lineWidth: 0.025
-  floorColor: {r: 0.05, g: 0.95, b: 0.8, a: 0.7}
-  wallColor: {r: 0.2, g: 0.55, b: 1, a: 0.55}
 --- !u!114 &2349598333440088064
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1772,7 +1750,6 @@ MonoBehaviour:
   conversationManager: {fileID: 0}
   speechInput: {fileID: 0}
   geminiClient: {fileID: 0}
-  roomMap: {fileID: 4622251673800101888}
   userHead: {fileID: 0}
   headRelativeOffset: {x: -0.42, y: -0.2, z: 1.25}
   panelSize: {x: 520, y: 360}
@@ -1794,7 +1771,6 @@ MonoBehaviour:
   bootstrapOnAwake: 1
   enablePassthrough: 1
   enableSpatialAnchorOnDevice: 1
-  enableRoomOutlineDemo: 1
   useProject3HeadTrackedView: 1
   enableVrStatusPanel: 1
   enableRoomCameraControls: 1

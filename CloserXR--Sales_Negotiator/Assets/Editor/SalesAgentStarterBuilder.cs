@@ -314,11 +314,6 @@ namespace CloserXR.SalesNegotiator.Editor
 
             ApplyFallbackMaterials(instance, CreateFallbackMaterials());
 
-            if (instance.GetComponent<SpatialRoomMapDemo>() == null)
-            {
-                instance.AddComponent<SpatialRoomMapDemo>();
-            }
-
             if (instance.GetComponent<SalesAgentVRStatusPanel>() == null)
             {
                 instance.AddComponent<SalesAgentVRStatusPanel>();
