@@ -25,7 +25,7 @@ namespace CloserXR.SalesNegotiator
         [SerializeField] private string geminiTtsPromptPrefix = "Say in clear natural American English as a confident life insurance sales agent: ";
         [Header("Voice Audio")]
         [SerializeField, Range(0f, 1f)] private float voiceVolume = 1.0f;
-        [SerializeField, Range(0f, 1f)] private float spatialBlend = 0.2f;
+        [SerializeField, Range(0f, 1f)] private float spatialBlend = 0f;
         [SerializeField] private float minDistance = 1.5f;
         [SerializeField] private float maxDistance = 40f;
         [SerializeField] private bool proceduralFallbackVoice = false;
@@ -40,9 +40,12 @@ namespace CloserXR.SalesNegotiator
         private AudioSource _audioSource;
         private Coroutine _speakRoutine;
         private Coroutine _lipRoutine;
+        private string _lastVoiceRoute;
 
 #if UNITY_ANDROID && !UNITY_EDITOR
         private AndroidJavaObject _tts;
+        private AndroidJavaObject _mediaPlayer;
+        private AndroidJavaObject _toneGenerator;
         private TTSUtteranceProgressListener _progressListener;
         private volatile bool _ttsReady;
         private volatile bool _ttsFinished;
@@ -71,6 +74,8 @@ namespace CloserXR.SalesNegotiator
 
         private void OnDestroy()
         {
+            ReleaseAndroidMediaPlayer();
+            ReleaseAndroidToneGenerator();
 #if UNITY_ANDROID && !UNITY_EDITOR
             try { _tts?.Call("shutdown"); } catch { }
             TryDeleteFile(_currentSynthPath);
@@ -88,6 +93,12 @@ namespace CloserXR.SalesNegotiator
             _speakRoutine = StartCoroutine(SpeakRoutine(text, onComplete));
         }
 
+        public void PlayAudioProbe()
+        {
+            Stop();
+            _speakRoutine = StartCoroutine(AudioProbeRoutine());
+        }
+
         public void Stop()
         {
             if (_speakRoutine != null)
@@ -97,6 +108,8 @@ namespace CloserXR.SalesNegotiator
             }
 
             StopLipVariation();
+            ReleaseAndroidMediaPlayer();
+            ReleaseAndroidToneGenerator();
             if (_audioSource != null)
             {
                 _audioSource.Stop();
@@ -126,6 +139,7 @@ namespace CloserXR.SalesNegotiator
             float lipDuration = Mathf.Clamp(duration + 2f, 3f, 14f);
             bool handledSpeech = false;
             string ttsError = null;
+            _lastVoiceRoute = null;
 
             DiagnosticStatus = "Starting voice";
             _lipRoutine = StartCoroutine(VariateTalkingSpeed(lipDuration));
@@ -196,15 +210,66 @@ namespace CloserXR.SalesNegotiator
             StopLipVariation();
             if (handledSpeech)
             {
-                DiagnosticStatus = "Ready";
+                DiagnosticStatus = string.IsNullOrWhiteSpace(_lastVoiceRoute)
+                    ? "Ready (voice ok)"
+                    : "Ready (" + _lastVoiceRoute + ")";
             }
 
             _speakRoutine = null;
             onComplete?.Invoke();
         }
 
+        private IEnumerator AudioProbeRoutine()
+        {
+            _lastVoiceRoute = null;
+            StopLipVariation();
+
+#if UNITY_ANDROID && !UNITY_EDITOR
+            DiagnosticStatus = "Audio probe: Android beep";
+            if (TryStartAndroidToneProbe(850, out string toneError))
+            {
+                yield return new WaitForSeconds(1f);
+                ReleaseAndroidToneGenerator();
+            }
+            else
+            {
+                Debug.LogWarning("[SalesAgentTTS] Android tone probe failed: " + toneError);
+                DiagnosticStatus = "Audio probe: Android beep failed";
+                yield return new WaitForSeconds(0.5f);
+            }
+#endif
+
+            DiagnosticStatus = "Audio probe: Unity beep";
+            yield return PlayUnityProbeTone();
+
+            bool handledSpeech = false;
+            string ttsError = null;
+            DiagnosticStatus = "Audio probe: English TTS";
+            yield return PlayGeminiEnglishTextToSpeech(
+                "Say clearly in English: Audio test complete.",
+                result => handledSpeech = result,
+                error => ttsError = error);
+
+#if UNITY_ANDROID && !UNITY_EDITOR
+            if (!handledSpeech && _ttsReady && _tts != null)
+            {
+                yield return PlayAndroidTextToSpeech(
+                    "Audio test complete.",
+                    2f,
+                    result => handledSpeech = result,
+                    error => ttsError = error);
+            }
+#endif
+
+            DiagnosticStatus = handledSpeech
+                ? "Audio probe OK (" + (string.IsNullOrWhiteSpace(_lastVoiceRoute) ? "voice ok" : _lastVoiceRoute) + ")"
+                : BuildNoSoundStatus(ttsError);
+            _speakRoutine = null;
+        }
+
         private void EnsureAudioSource()
         {
+            EnsureAudioListener();
             _audioSource = GetComponent<AudioSource>();
             if (_audioSource == null)
             {
@@ -213,6 +278,7 @@ namespace CloserXR.SalesNegotiator
 
             _audioSource.playOnAwake = false;
             _audioSource.loop = false;
+            _audioSource.mute = false;
             _audioSource.volume = voiceVolume;
             _audioSource.spatialBlend = spatialBlend;
             _audioSource.minDistance = minDistance;
@@ -221,6 +287,69 @@ namespace CloserXR.SalesNegotiator
             _audioSource.priority = 0;
             _audioSource.dopplerLevel = 0f;
             _audioSource.ignoreListenerPause = true;
+        }
+
+        private static void EnsureAudioListener()
+        {
+            AudioListener.volume = 1f;
+
+            foreach (AudioListener listener in FindObjectsOfType<AudioListener>())
+            {
+                if (listener != null && listener.enabled && listener.gameObject.activeInHierarchy)
+                {
+                    return;
+                }
+            }
+
+            Camera camera = Camera.main != null ? Camera.main : FindObjectOfType<Camera>();
+            if (camera == null)
+            {
+                Debug.LogWarning("[SalesAgentTTS] No camera found for AudioListener.");
+                return;
+            }
+
+            AudioListener cameraListener = camera.GetComponent<AudioListener>();
+            if (cameraListener == null)
+            {
+                cameraListener = camera.gameObject.AddComponent<AudioListener>();
+            }
+
+            cameraListener.enabled = true;
+            Debug.LogWarning("[SalesAgentTTS] Enabled fallback AudioListener on " + camera.name);
+        }
+
+        private IEnumerator PlayUnityProbeTone()
+        {
+            EnsureAudioSource();
+            AudioClip clip = BuildProbeTone(880f, 0.6f);
+            _audioSource.clip = clip;
+            _audioSource.Play();
+
+            float elapsed = 0f;
+            while (_audioSource != null && _audioSource.isPlaying && elapsed < 1f)
+            {
+                elapsed += Time.deltaTime;
+                yield return null;
+            }
+
+            _audioSource.clip = null;
+        }
+
+        private AudioClip BuildProbeTone(float pitchHz, float duration)
+        {
+            int frequency = 24000;
+            int samples = Mathf.Max(1, Mathf.CeilToInt(duration * frequency));
+            float[] data = new float[samples];
+            for (int i = 0; i < samples; i++)
+            {
+                float t = i / (float)frequency;
+                float envelope = Mathf.Clamp01(Mathf.Sin(Mathf.PI * t / Mathf.Max(duration, 0.01f)));
+                data[i] = Mathf.Sin(2f * Mathf.PI * pitchHz * t) * envelope * 0.55f;
+            }
+
+            AudioClip clip = AudioClip.Create("CloserXRAudioProbe", samples, 1, frequency, false);
+            clip.SetData(data, 0);
+            return clip;
         }
 
         private IEnumerator VariateTalkingSpeed(float duration)
@@ -348,6 +477,27 @@ namespace CloserXR.SalesNegotiator
                     yield break;
                 }
 
+#if UNITY_ANDROID && !UNITY_EDITOR
+                bool nativePlayed = false;
+                string nativeError = null;
+                yield return PlayGeminiPcmWithAndroidMediaPlayer(
+                    pcmBytes,
+                    mimeType,
+                    result => nativePlayed = result,
+                    error => nativeError = error);
+
+                if (nativePlayed)
+                {
+                    onComplete?.Invoke(true);
+                    yield break;
+                }
+
+                if (!string.IsNullOrWhiteSpace(nativeError))
+                {
+                    Debug.LogWarning("[SalesAgentTTS] Android native Gemini playback failed: " + nativeError);
+                }
+#endif
+
                 AudioClip clip = CreatePcm16MonoClip(pcmBytes, mimeType);
                 if (clip == null)
                 {
@@ -359,6 +509,7 @@ namespace CloserXR.SalesNegotiator
                 DiagnosticStatus = "Speaking English (Gemini)";
                 _audioSource.clip = clip;
                 _audioSource.Play();
+                _lastVoiceRoute = "Gemini Unity audio";
 
                 float timeout = Mathf.Max(clip.length + 0.5f, 1f);
                 float elapsed = 0f;
@@ -372,6 +523,72 @@ namespace CloserXR.SalesNegotiator
                 onComplete?.Invoke(true);
             }
         }
+
+#if UNITY_ANDROID && !UNITY_EDITOR
+        private IEnumerator PlayGeminiPcmWithAndroidMediaPlayer(
+            byte[] pcmBytes,
+            string mimeType,
+            Action<bool> onComplete,
+            Action<string> onError)
+        {
+            onComplete?.Invoke(false);
+            onError?.Invoke(null);
+
+            string path = null;
+            try
+            {
+                int sampleRate = ParsePcmSampleRate(mimeType);
+                byte[] wavBytes = BuildWaveBytes(pcmBytes, sampleRate);
+                path = Path.Combine(Application.temporaryCachePath, "closerxr_gemini_tts_" + DateTime.UtcNow.Ticks + ".wav");
+                File.WriteAllBytes(path, wavBytes);
+
+                PrepareAndroidAudioForPlayback();
+                ReleaseAndroidMediaPlayer();
+                _mediaPlayer = new AndroidJavaObject("android.media.MediaPlayer");
+                ConfigureMediaPlayerAudioAttributes(_mediaPlayer);
+                _mediaPlayer.Call("setDataSource", path);
+                _mediaPlayer.Call("prepare");
+                _mediaPlayer.Call("start");
+                _lastVoiceRoute = "Gemini Android audio";
+                DiagnosticStatus = "Speaking English (Android audio)";
+            }
+            catch (Exception e)
+            {
+                ReleaseAndroidMediaPlayer();
+                TryDeleteFile(path);
+                onError?.Invoke(e.Message);
+                yield break;
+            }
+
+            float duration = EstimatePcmDuration(pcmBytes, ParsePcmSampleRate(mimeType));
+            float timeout = Mathf.Clamp(duration + 1f, 1f, 30f);
+            float elapsed = 0f;
+            while (elapsed < timeout)
+            {
+                bool isPlaying = false;
+                try
+                {
+                    isPlaying = _mediaPlayer != null && _mediaPlayer.Call<bool>("isPlaying");
+                }
+                catch
+                {
+                    break;
+                }
+
+                if (!isPlaying && elapsed > 0.25f)
+                {
+                    break;
+                }
+
+                elapsed += Time.deltaTime;
+                yield return null;
+            }
+
+            ReleaseAndroidMediaPlayer();
+            TryDeleteFile(path);
+            onComplete?.Invoke(true);
+        }
+#endif
 
         private string BuildGeminiSpeechPrompt(string text)
         {
@@ -448,6 +665,44 @@ namespace CloserXR.SalesNegotiator
             return clip;
         }
 
+        private static byte[] BuildWaveBytes(byte[] pcmBytes, int sampleRate)
+        {
+            const short Channels = 1;
+            const short BitsPerSample = 16;
+            short blockAlign = (short)(Channels * BitsPerSample / 8);
+            int byteRate = sampleRate * blockAlign;
+
+            using (MemoryStream stream = new MemoryStream(44 + pcmBytes.Length))
+            using (BinaryWriter writer = new BinaryWriter(stream))
+            {
+                writer.Write(Encoding.ASCII.GetBytes("RIFF"));
+                writer.Write(36 + pcmBytes.Length);
+                writer.Write(Encoding.ASCII.GetBytes("WAVE"));
+                writer.Write(Encoding.ASCII.GetBytes("fmt "));
+                writer.Write(16);
+                writer.Write((short)1);
+                writer.Write(Channels);
+                writer.Write(sampleRate);
+                writer.Write(byteRate);
+                writer.Write(blockAlign);
+                writer.Write(BitsPerSample);
+                writer.Write(Encoding.ASCII.GetBytes("data"));
+                writer.Write(pcmBytes.Length);
+                writer.Write(pcmBytes);
+                return stream.ToArray();
+            }
+        }
+
+        private static float EstimatePcmDuration(byte[] pcmBytes, int sampleRate)
+        {
+            if (pcmBytes == null || pcmBytes.Length == 0 || sampleRate <= 0)
+            {
+                return 1f;
+            }
+
+            return pcmBytes.Length / 2f / sampleRate;
+        }
+
         private static int ParsePcmSampleRate(string mimeType)
         {
             if (string.IsNullOrWhiteSpace(mimeType))
@@ -493,6 +748,112 @@ namespace CloserXR.SalesNegotiator
             }
 
             return "No sound: " + normalized;
+        }
+
+        private bool TryStartAndroidToneProbe(int durationMs, out string error)
+        {
+            error = null;
+#if UNITY_ANDROID && !UNITY_EDITOR
+            try
+            {
+                PrepareAndroidAudioForPlayback();
+                ReleaseAndroidToneGenerator();
+                _toneGenerator = new AndroidJavaObject("android.media.ToneGenerator", 3, 100);
+                using (AndroidJavaClass toneClass = new AndroidJavaClass("android.media.ToneGenerator"))
+                {
+                    int tone = toneClass.GetStatic<int>("TONE_PROP_BEEP");
+                    return _toneGenerator.Call<bool>("startTone", tone, durationMs);
+                }
+            }
+            catch (Exception e)
+            {
+                error = e.Message;
+                ReleaseAndroidToneGenerator();
+                return false;
+            }
+#else
+            error = "Android tone probe only runs on device";
+            return false;
+#endif
+        }
+
+        private static void PrepareAndroidAudioForPlayback()
+        {
+#if UNITY_ANDROID && !UNITY_EDITOR
+            try
+            {
+                using (AndroidJavaClass playerClass = new AndroidJavaClass("com.unity3d.player.UnityPlayer"))
+                {
+                    AndroidJavaObject activity = playerClass.GetStatic<AndroidJavaObject>("currentActivity");
+                    AndroidJavaObject audioManager = activity.Call<AndroidJavaObject>("getSystemService", "audio");
+                    const int StreamMusic = 3;
+                    int maxVolume = audioManager.Call<int>("getStreamMaxVolume", StreamMusic);
+                    audioManager.Call("setStreamVolume", StreamMusic, maxVolume, 0);
+                    audioManager.Call<int>("requestAudioFocus", null, StreamMusic, 1);
+                    audioManager.Dispose();
+                    activity.Dispose();
+                }
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning("[SalesAgentTTS] Android audio focus setup failed: " + e.Message);
+            }
+#endif
+        }
+
+        private static void ConfigureMediaPlayerAudioAttributes(AndroidJavaObject mediaPlayer)
+        {
+#if UNITY_ANDROID && !UNITY_EDITOR
+            if (mediaPlayer == null)
+            {
+                return;
+            }
+
+            try
+            {
+                AndroidJavaObject builder = new AndroidJavaObject("android.media.AudioAttributes$Builder");
+                builder.Call<AndroidJavaObject>("setUsage", 1);
+                builder.Call<AndroidJavaObject>("setContentType", 1);
+                AndroidJavaObject attributes = builder.Call<AndroidJavaObject>("build");
+                mediaPlayer.Call("setAudioAttributes", attributes);
+                attributes.Dispose();
+                builder.Dispose();
+            }
+            catch
+            {
+                mediaPlayer.Call("setAudioStreamType", 3);
+            }
+#endif
+        }
+
+        private void ReleaseAndroidMediaPlayer()
+        {
+#if UNITY_ANDROID && !UNITY_EDITOR
+            if (_mediaPlayer == null)
+            {
+                return;
+            }
+
+            try { _mediaPlayer.Call("stop"); } catch { }
+            try { _mediaPlayer.Call("release"); } catch { }
+            _mediaPlayer.Dispose();
+            _mediaPlayer = null;
+#endif
+        }
+
+        private void ReleaseAndroidToneGenerator()
+        {
+#if UNITY_ANDROID && !UNITY_EDITOR
+            if (_toneGenerator == null)
+            {
+                return;
+            }
+
+            try { _toneGenerator.Call("stopTone"); } catch { }
+            try { _toneGenerator.Call("release"); } catch { }
+            _toneGenerator.Dispose();
+            _toneGenerator = null;
+#endif
         }
 
         private void InitAndroidTTS()

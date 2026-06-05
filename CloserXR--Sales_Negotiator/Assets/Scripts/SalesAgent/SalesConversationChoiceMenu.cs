@@ -12,6 +12,7 @@ namespace CloserXR.SalesNegotiator
         [SerializeField] private SalesConversationManager conversationManager;
         [SerializeField] private SalesAgentAnimator agentAnimator;
         [SerializeField] private SalesAgentPacer pacer;
+        [SerializeField] private SalesAgentTTS tts;
         [SerializeField] private Transform userHead;
         [SerializeField] private Vector3 headRelativeOffset = new Vector3(-0.58f, -0.16f, 1.18f);
         [SerializeField] private Vector2 menuSize = new Vector2(600f, 510f);
@@ -81,6 +82,7 @@ namespace CloserXR.SalesNegotiator
         {
             if (QuestRuntimeBridge.GetLeftMenuToggleDown() || Input.GetKeyDown(KeyCode.M))
             {
+                Debug.Log("[CloserXR Controller] Left menu toggle");
                 SetMenuOpen(!menuOpen);
             }
 
@@ -97,6 +99,7 @@ namespace CloserXR.SalesNegotiator
 
             if (QuestRuntimeBridge.GetLeftIndexTriggerDown() || Input.GetKeyDown(KeyCode.Return))
             {
+                Debug.Log("[CloserXR Controller] Left trigger menu select");
                 SubmitHoveredChoice();
             }
         }
@@ -154,10 +157,11 @@ namespace CloserXR.SalesNegotiator
 
             float actionY = 206f;
             float actionGap = 8f;
-            float actionWidth = (menuSize.x - 36f - actionGap * 2f) / 3f;
+            float actionWidth = (menuSize.x - 36f - actionGap * 3f) / 4f;
             CreateChoiceRow(panel.transform, choices.Count, "Idle", new Vector2(18f, -actionY), new Vector2(actionWidth, 30f), PlayIdleAction, ActionRowColor);
             CreateChoiceRow(panel.transform, choices.Count, "Walk", new Vector2(18f + actionWidth + actionGap, -actionY), new Vector2(actionWidth, 30f), PlayWalkAction, ActionRowColor);
             CreateChoiceRow(panel.transform, choices.Count, "Dance", new Vector2(18f + (actionWidth + actionGap) * 2f, -actionY), new Vector2(actionWidth, 30f), PlayDanceAction, ActionRowColor);
+            CreateChoiceRow(panel.transform, choices.Count, "Audio Test", new Vector2(18f + (actionWidth + actionGap) * 3f, -actionY), new Vector2(actionWidth, 30f), PlayAudioTestAction, ActionRowColor);
 
             float y = 248f;
             for (int i = 0; i < quickUserLines.Length; i++)
@@ -433,6 +437,13 @@ namespace CloserXR.SalesNegotiator
             agentAnimator?.Dance();
         }
 
+        private void PlayAudioTestAction()
+        {
+            AutoWireActionTargets();
+            pacer?.GoIdle();
+            tts?.PlayAudioProbe();
+        }
+
         private void AutoWireActionTargets()
         {
             if (agentAnimator == null)
@@ -443,6 +454,11 @@ namespace CloserXR.SalesNegotiator
             if (pacer == null)
             {
                 pacer = GetComponent<SalesAgentPacer>();
+            }
+
+            if (tts == null)
+            {
+                tts = GetComponent<SalesAgentTTS>();
             }
         }
 

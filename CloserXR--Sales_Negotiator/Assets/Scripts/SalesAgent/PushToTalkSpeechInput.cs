@@ -149,6 +149,8 @@ namespace CloserXR.SalesNegotiator
                 return;
             }
 
+            Debug.Log("[CloserXR Controller] Right trigger voice toggle");
+
             switch (mode)
             {
                 case SpeechInputMode.PushToTalk:

@@ -143,7 +143,7 @@ namespace CloserXR.SalesNegotiator
             SetRect(statusHeader.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(34f, -146f), new Vector2(220f, 28f));
             statusHeader.text = "STATUS";
 
-            statusText = CreateText(panelRect, "Status Text", 20, FontStyle.Normal, BodyColor, TextAnchor.UpperLeft);
+            statusText = CreateText(panelRect, "Status Text", 16, FontStyle.Normal, BodyColor, TextAnchor.UpperLeft);
             SetRect(statusText.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(34f, -174f), new Vector2(220f, 150f));
 
             Text conversationHeader = CreateText(panelRect, "Conversation Header", 18, FontStyle.Bold, MutedColor, TextAnchor.UpperLeft);
@@ -213,12 +213,14 @@ namespace CloserXR.SalesNegotiator
             string geminiStatus = hasGeminiKey ? "Connected" : "Local fallback";
 
             string ttsStatus = tts != null ? tts.DiagnosticStatus : "None";
+            string inputStatus = QuestRuntimeBridge.GetControllerDiagnostics();
 
             statusText.text =
                 $"Agent: {agentStatus}\n" +
                 $"Gemini: {geminiStatus}\n" +
                 $"TTS: {ttsStatus}\n" +
-                $"Mic: {micStatus}";
+                $"Mic: {micStatus}\n" +
+                $"Input: {inputStatus}";
 
             string userText = conversationManager != null ? conversationManager.LastUserText : "";
             string agentText = conversationManager != null ? conversationManager.LastAgentText : "";

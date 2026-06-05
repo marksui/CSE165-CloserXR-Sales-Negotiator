@@ -27,6 +27,8 @@ namespace CloserXR.SalesNegotiator
         private static bool warnedMissingOvrInput;
         private static bool warnedMissingPassthrough;
         private static bool warnedMissingCameraRig;
+        private static string lastDiagnosticInput = "";
+        private static float lastDiagnosticInputLogTime;
 
         private enum ButtonEdge
         {
@@ -102,6 +104,69 @@ namespace CloserXR.SalesNegotiator
         public static bool GetButtonUp(string buttonName)
         {
             return GetButtonEdge("Button." + buttonName, IsButtonCurrentlyPressed(buttonName), ButtonEdge.Up);
+        }
+
+        public static string GetControllerDiagnostics()
+        {
+            InputDevice leftDevice = InputDevices.GetDeviceAtXRNode(XRNode.LeftHand);
+            InputDevice rightDevice = InputDevices.GetDeviceAtXRNode(XRNode.RightHand);
+            List<string> pressed = new List<string>();
+
+            if (IsLeftGripPressed())
+            {
+                pressed.Add("L grip");
+            }
+
+            if (IsLeftIndexTriggerPressed())
+            {
+                pressed.Add("L trigger");
+            }
+
+            if (IsRightIndexTriggerPressed())
+            {
+                pressed.Add("R trigger");
+            }
+
+            if (IsRawButtonCurrentlyPressed("A"))
+            {
+                pressed.Add("A");
+            }
+
+            if (IsRawButtonCurrentlyPressed("B"))
+            {
+                pressed.Add("B");
+            }
+
+            if (IsRawButtonCurrentlyPressed("X"))
+            {
+                pressed.Add("X");
+            }
+
+            if (IsRawButtonCurrentlyPressed("Y"))
+            {
+                pressed.Add("Y");
+            }
+
+            Vector2 rightStick = GetOvrAxis2D("RawAxis2D", "RThumbstick", "RTouch");
+            if (rightStick.sqrMagnitude <= 0.001f)
+            {
+                rightStick = GetXrPrimary2DAxis(XRNode.RightHand);
+            }
+
+            if (rightStick.magnitude >= ThumbstickDirectionThreshold)
+            {
+                pressed.Add("R stick " + FormatAxis(rightStick));
+            }
+
+            string pressedText = pressed.Count > 0 ? string.Join(", ", pressed) : "none";
+            if (pressedText != "none")
+            {
+                LogDiagnosticInput(pressedText);
+            }
+
+            return "L:" + (leftDevice.isValid ? "valid" : "missing")
+                + " R:" + (rightDevice.isValid ? "valid" : "missing")
+                + " Press:" + pressedText;
         }
 
         private static bool GetRawButtonDown(string rawButtonName, string controllerName)
@@ -326,6 +391,23 @@ namespace CloserXR.SalesNegotiator
             return device.isValid && device.TryGetFeatureValue(usage, out bool pressed) && pressed;
         }
 
+        private static string FormatAxis(Vector2 axis)
+        {
+            return axis.x.ToString("0.0") + "," + axis.y.ToString("0.0");
+        }
+
+        private static void LogDiagnosticInput(string pressedText)
+        {
+            if (pressedText == lastDiagnosticInput && Time.unscaledTime - lastDiagnosticInputLogTime < 0.5f)
+            {
+                return;
+            }
+
+            lastDiagnosticInput = pressedText;
+            lastDiagnosticInputLogTime = Time.unscaledTime;
+            Debug.Log("[CloserXR Controller] Input detected: " + pressedText);
+        }
+
         private static bool GetXrAnalogButtonPressed(XRNode node, InputFeatureUsage<bool> buttonUsage, InputFeatureUsage<float> axisUsage)
         {
             if (GetXrButtonPressed(node, buttonUsage))
@@ -450,9 +532,10 @@ namespace CloserXR.SalesNegotiator
 
             SetMember(manager, "isInsightPassthroughEnabled", true);
             SetEnumMember(manager, "trackingOriginType", "FloorLevel");
-            SetMember(manager, "launchSimultaneousHandsControllersOnStartup", true);
-            SetMember(manager, "SimultaneousHandsAndControllersEnabled", true);
-            SetMember(manager, "shouldBoundaryVisibilityBeSuppressed", true);
+            SetEnumMember(manager, "controllerDrivenHandPosesType", "None");
+            SetMember(manager, "launchSimultaneousHandsControllersOnStartup", false);
+            SetMember(manager, "SimultaneousHandsAndControllersEnabled", false);
+            DisableSimultaneousHandsAndControllers();
 
             Component passthroughLayer = UnityEngine.Object.FindObjectOfType(ovrPassthroughLayerType) as Component;
             if (passthroughLayer == null)
@@ -474,6 +557,25 @@ namespace CloserXR.SalesNegotiator
         private static void EnsureOvrManagerAndPassthrough(GameObject target)
         {
             EnsurePassthrough(target);
+        }
+
+        private static void DisableSimultaneousHandsAndControllers()
+        {
+            ovrInputType = ovrInputType ?? FindType("OVRInput");
+            MethodInfo disableMethod = ovrInputType?.GetMethod("DisableSimultaneousHandsAndControllers", PublicStatic);
+            if (disableMethod == null)
+            {
+                return;
+            }
+
+            try
+            {
+                disableMethod.Invoke(null, null);
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning("Could not force controller-only input mode: " + e.Message);
+            }
         }
 
         private static void ConfigureProject3CenterEyeCamera(Camera headCamera, Camera fallbackCamera)

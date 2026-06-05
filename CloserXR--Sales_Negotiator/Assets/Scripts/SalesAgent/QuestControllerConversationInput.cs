@@ -45,55 +45,56 @@ namespace CloserXR.SalesNegotiator
 
             if (QuestRuntimeBridge.GetRawButtonDown("A"))
             {
-                Submit(aButtonLine);
+                Submit("A", aButtonLine);
                 return;
             }
 
             if (QuestRuntimeBridge.GetRawButtonDown("B"))
             {
-                Submit(bButtonLine);
+                Submit("B", bButtonLine);
                 return;
             }
 
             if (QuestRuntimeBridge.GetRawButtonDown("X"))
             {
-                Submit(xButtonLine);
+                Submit("X", xButtonLine);
                 return;
             }
 
             if (QuestRuntimeBridge.GetRawButtonDown("Y"))
             {
-                Submit(yButtonLine);
+                Submit("Y", yButtonLine);
                 return;
             }
 
             if (QuestRuntimeBridge.GetRawButtonDown("RThumbstickUp"))
             {
-                Submit(thumbstickUpLine);
+                Submit("R stick up", thumbstickUpLine);
                 return;
             }
 
             if (QuestRuntimeBridge.GetRawButtonDown("RThumbstickDown"))
             {
-                Submit(thumbstickDownLine);
+                Submit("R stick down", thumbstickDownLine);
                 return;
             }
 
             if (QuestRuntimeBridge.GetRawButtonDown("RThumbstickLeft"))
             {
-                Submit(thumbstickLeftLine);
+                Submit("R stick left", thumbstickLeftLine);
                 return;
             }
 
             if (QuestRuntimeBridge.GetRawButtonDown("RThumbstickRight"))
             {
-                Submit(thumbstickRightLine);
+                Submit("R stick right", thumbstickRightLine);
             }
         }
 
-        private void Submit(string line)
+        private void Submit(string source, string line)
         {
             nextSubmitTime = Time.time + submitCooldown;
+            Debug.Log("[CloserXR Controller] Choice submit from " + source);
             conversationManager.SubmitUserText(line);
         }
     }
