@@ -156,11 +156,11 @@ namespace CloserXR.SalesNegotiator
                 case SpeechInputMode.PushToTalk:
                     if (IsRecording)
                     {
-                        StopPTTAndSubmit();
+                        StartCoroutine(StopPTTAndSubmit());
                     }
                     else
                     {
-                        StartPTTRecording();
+                        StartCoroutine(StartPTTRecording());
                     }
                     break;
 
@@ -182,29 +182,81 @@ namespace CloserXR.SalesNegotiator
 
         // ── Push-to-talk mode ───────────────────────────────────────────────
 
-        private void StartPTTRecording()
+        private System.Collections.IEnumerator StartPTTRecording()
         {
-            if (Microphone.devices.Length == 0) return;
+            if (Microphone.devices.Length == 0)
+                yield break;
+
             deviceName = Microphone.devices[0];
-            micClip = Microphone.Start(deviceName, false, maxRecordSeconds, sampleRate);
-            IsRecording = micClip != null;
+            Debug.Log($"Starting mic recording on device: {deviceName}");
+            micClip = Microphone.Start(
+                deviceName,
+                false,
+                maxRecordSeconds,
+                sampleRate
+            );
+
+            while (!(Microphone.GetPosition(deviceName) > 0))
+                yield return null;
+
+            Debug.Log("Mic recording started");
+            IsRecording = true;
         }
 
-        private void StopPTTAndSubmit()
+        private System.Collections.IEnumerator StopPTTAndSubmit()
         {
-            int position = Microphone.GetPosition(deviceName);
-            Microphone.End(deviceName);
-            IsRecording = false;
+            if (micClip == null)
+                yield break;
 
-            if (micClip == null || position <= 0) return;
+            // Small delay helps flush final samples
+            yield return null;
+
+            int position = Microphone.GetPosition(deviceName);
+
+            Debug.Log($"Mic position: {position}");
+
+            if (position <= 0)
+            {
+                Debug.LogError("No microphone data recorded.");
+                Microphone.End(deviceName);
+                micClip = null;
+                yield break;
+            }
 
             int channels = micClip.channels;
+
             float[] data = new float[position * channels];
             micClip.GetData(data, 0);
 
-            AudioClip trimmed = AudioClip.Create("UserSpeech", position, channels, sampleRate, false);
+            // Check if actual sound exists
+            float maxAmplitude = 0f;
+            foreach (float sample in data)
+            {
+                maxAmplitude = Mathf.Max(
+                    maxAmplitude,
+                    Mathf.Abs(sample)
+                );
+            }
+
+            Debug.Log($"Max amplitude: {maxAmplitude}");
+
+            // Stop mic AFTER copying data
+            Microphone.End(deviceName);
+
+            AudioClip trimmed = AudioClip.Create(
+                "UserSpeech",
+                position,
+                channels,
+                micClip.frequency,
+                false
+            );
+
             trimmed.SetData(data, 0);
+
+            IsRecording = false;
+
             conversationManager?.SubmitUserAudio(trimmed);
+
             micClip = null;
         }
 

@@ -13,7 +13,7 @@ namespace CloserXR.SalesNegotiator
     {
         [SerializeField] private string apiKeyOverride = "";
         [SerializeField] private string apiKeyEnvironmentVariable = "GEMINI_API_KEY";
-        [SerializeField] private string model = "gemini-2.5-flash";
+        [SerializeField] private string model = "Gemini 3.1 Flash Lite";
         [SerializeField, Range(0f, 2f)] private float temperature = 0.9f;
         [SerializeField] private int maxOutputTokens = 180;
         [SerializeField] private int maxHistoryTurns = 10;
@@ -114,10 +114,14 @@ namespace CloserXR.SalesNegotiator
             }
 
             byte[] wavBytes = WavEncoder.Encode(audioClip);
+            string path = "C:\\Users\\tseri\\Downloads\\gemini_debug.wav";
+            File.WriteAllBytes(path, wavBytes);
+            Debug.Log($"Saved wav to: {path}");
+            Debug.Log($"Wav size: {wavBytes.Length} bytes");
 
             string instructionText = _history.Count == 0
-                ? $"{prompt}\n\nFirst infer what the user said from this audio. Then answer as the salesperson in two punchy sentences."
-                : "First infer what the user said from this audio. Then answer as the salesperson in two punchy sentences.";
+                ? $"{prompt}\n\nAnswer as the salesperson in two punchy sentences."
+                : "Answer as the salesperson in two punchy sentences.";
 
             GeminiPart instructions = new GeminiPart { text = instructionText };
             GeminiPart audioPart = new GeminiPart
@@ -199,7 +203,11 @@ namespace CloserXR.SalesNegotiator
                 yield break;
             }
 
-            string json = JsonUtility.ToJson(request);
+            string json = Newtonsoft.Json.JsonConvert.SerializeObject(request, 
+                new Newtonsoft.Json.JsonSerializerSettings 
+                { 
+                    NullValueHandling = Newtonsoft.Json.NullValueHandling.Ignore 
+                });
             byte[] body = Encoding.UTF8.GetBytes(json);
             string endpoint = string.Format(EndpointTemplate, model);
 
@@ -235,8 +243,9 @@ namespace CloserXR.SalesNegotiator
 
         private string GetApiKey()
         {
+            
             if (!string.IsNullOrWhiteSpace(apiKeyOverride))
-            {
+            {   
                 return apiKeyOverride.Trim();
             }
 
@@ -327,6 +336,8 @@ namespace CloserXR.SalesNegotiator
                 return "";
             }
 
+            StringBuilder sb = new StringBuilder();
+
             foreach (GeminiCandidate candidate in response.candidates)
             {
                 if (candidate?.content?.parts == null)
@@ -338,12 +349,12 @@ namespace CloserXR.SalesNegotiator
                 {
                     if (!string.IsNullOrWhiteSpace(part.text))
                     {
-                        return part.text;
+                        sb.Append(part.text);
                     }
                 }
             }
 
-            return "";
+            return sb.ToString();
         }
 
         [Serializable]

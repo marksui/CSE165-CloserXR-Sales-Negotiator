@@ -446,7 +446,13 @@ namespace CloserXR.SalesNegotiator
                 }
             };
 
-            string json = JsonUtility.ToJson(requestBody);
+            string json = Newtonsoft.Json.JsonConvert.SerializeObject(
+            requestBody,
+            new Newtonsoft.Json.JsonSerializerSettings
+            {
+                NullValueHandling = Newtonsoft.Json.NullValueHandling.Ignore
+            });
+            Debug.Log(json);
             byte[] body = Encoding.UTF8.GetBytes(json);
             string endpoint = string.Format(GeminiTtsEndpointTemplate, modelName);
 
@@ -597,7 +603,7 @@ namespace CloserXR.SalesNegotiator
                 return text;
             }
 
-            return geminiTtsPromptPrefix.TrimEnd() + " " + text.Trim();
+            return text;
         }
 
         private static byte[] ExtractGeminiPcmBytes(string responseText, out string mimeType)

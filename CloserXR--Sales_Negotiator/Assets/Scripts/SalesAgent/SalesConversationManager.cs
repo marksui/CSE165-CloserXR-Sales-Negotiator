@@ -124,6 +124,7 @@ namespace CloserXR.SalesNegotiator
                 {
                     completed = true;
                     waitingForGemini = false;
+                    Debug.Log($"Gemini text response: {response}");
                     DeliverAgentResponse(response);
                 },
                 error =>
@@ -156,6 +157,7 @@ namespace CloserXR.SalesNegotiator
                 {
                     completed = true;
                     waitingForGemini = false;
+                    Debug.Log($"Gemini audio response: {response}");
                     DeliverAgentResponse(response);
                 },
                 error =>
