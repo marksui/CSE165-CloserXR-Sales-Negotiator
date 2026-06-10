@@ -28,12 +28,14 @@ namespace CloserXR.SalesNegotiator
         [SerializeField, Range(0f, 1f)] private float spatialBlend = 0f;
         [SerializeField] private float minDistance = 1.5f;
         [SerializeField] private float maxDistance = 40f;
-        [SerializeField] private bool proceduralFallbackVoice = false;
+        [SerializeField] private bool proceduralFallbackVoice = true;
         [SerializeField] private bool allowAndroidSystemTtsFallback = true;
 
         private const string GeminiTtsEndpointTemplate =
             "https://generativelanguage.googleapis.com/v1beta/models/{0}:generateContent";
         private const int DefaultGeminiTtsSampleRate = 24000;
+        private const int GeminiTtsRequestTimeoutSeconds = 25;
+        private const float AndroidTtsInitWaitSeconds = 10f;
 
         private SalesAgentAnimator _animator;
         private GeminiSalesClient _geminiClient;
@@ -46,7 +48,9 @@ namespace CloserXR.SalesNegotiator
         private AndroidJavaObject _tts;
         private AndroidJavaObject _mediaPlayer;
         private AndroidJavaObject _toneGenerator;
+        private TTSInitListener _ttsInitListener;
         private TTSUtteranceProgressListener _progressListener;
+        private volatile bool _ttsInitComplete;
         private volatile bool _ttsReady;
         private volatile bool _ttsFinished;
         private volatile string _ttsError;
@@ -139,6 +143,7 @@ namespace CloserXR.SalesNegotiator
             float lipDuration = Mathf.Clamp(duration + 2f, 3f, 14f);
             bool handledSpeech = false;
             string ttsError = null;
+            string geminiError = null;
             _lastVoiceRoute = null;
 
             DiagnosticStatus = "Starting voice";
@@ -150,13 +155,14 @@ namespace CloserXR.SalesNegotiator
                     text,
                     result => handledSpeech = result,
                     error => ttsError = error);
+                geminiError = ttsError;
             }
 
 #if UNITY_ANDROID && !UNITY_EDITOR
             if (!handledSpeech)
             {
                 float waited = 0f;
-                while (!_ttsReady && waited < 3f)
+                while (!_ttsInitComplete && waited < AndroidTtsInitWaitSeconds)
                 {
                     waited += Time.deltaTime;
                     yield return null;
@@ -167,12 +173,16 @@ namespace CloserXR.SalesNegotiator
                 {
                     yield return PlayAndroidTextToSpeech(text, duration, result => handledSpeech = result, error => androidError = error);
                 }
+                else
+                {
+                    androidError = _ttsInitComplete && !string.IsNullOrWhiteSpace(DiagnosticStatus)
+                        ? DiagnosticStatus
+                        : "Android TTS init timeout";
+                }
 
                 if (!handledSpeech)
                 {
-                    ttsError = string.IsNullOrEmpty(androidError)
-                        ? "TTS init timeout"
-                        : androidError;
+                    ttsError = CombineTtsErrors(geminiError, androidError);
                 }
                 else
                 {
@@ -461,6 +471,7 @@ namespace CloserXR.SalesNegotiator
             {
                 webRequest.uploadHandler = new UploadHandlerRaw(body);
                 webRequest.downloadHandler = new DownloadHandlerBuffer();
+                webRequest.timeout = GeminiTtsRequestTimeoutSeconds;
                 webRequest.SetRequestHeader("Content-Type", "application/json");
                 webRequest.SetRequestHeader("x-goog-api-key", apiKey);
 
@@ -756,6 +767,23 @@ namespace CloserXR.SalesNegotiator
             return "No sound: " + normalized;
         }
 
+        private static string CombineTtsErrors(string primaryError, string fallbackError)
+        {
+            if (string.IsNullOrWhiteSpace(primaryError))
+            {
+                return string.IsNullOrWhiteSpace(fallbackError)
+                    ? "No English TTS available"
+                    : fallbackError;
+            }
+
+            if (string.IsNullOrWhiteSpace(fallbackError))
+            {
+                return primaryError;
+            }
+
+            return primaryError + " | Android fallback: " + fallbackError;
+        }
+
         private bool TryStartAndroidToneProbe(int durationMs, out string error)
         {
             error = null;
@@ -870,13 +898,18 @@ namespace CloserXR.SalesNegotiator
                 AndroidJavaClass playerClass = new AndroidJavaClass("com.unity3d.player.UnityPlayer");
                 AndroidJavaObject activity = playerClass.GetStatic<AndroidJavaObject>("currentActivity");
                 AndroidJavaObject appContext = activity.Call<AndroidJavaObject>("getApplicationContext");
+                _ttsInitComplete = false;
+                _ttsReady = false;
+                _ttsInitListener = new TTSInitListener(OnTTSInitialized);
                 _tts = new AndroidJavaObject(
                     "android.speech.tts.TextToSpeech",
                     appContext,
-                    new TTSInitListener(OnTTSInitialized));
+                    _ttsInitListener);
             }
             catch (Exception e)
             {
+                _ttsInitComplete = true;
+                _ttsReady = false;
                 DiagnosticStatus = $"TTS init exception: {e.Message}";
                 Debug.LogWarning($"[SalesAgentTTS] Failed to initialize Android TTS: {e.Message}");
             }
@@ -886,6 +919,7 @@ namespace CloserXR.SalesNegotiator
         private void OnTTSInitialized(int status)
         {
 #if UNITY_ANDROID && !UNITY_EDITOR
+            _ttsInitComplete = true;
             _ttsReady = status == 0;
             DiagnosticStatus = _ttsReady ? "Ready" : $"Init failed (status {status})";
 #endif

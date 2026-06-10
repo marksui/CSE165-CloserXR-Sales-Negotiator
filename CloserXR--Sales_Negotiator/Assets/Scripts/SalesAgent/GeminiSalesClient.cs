@@ -13,7 +13,7 @@ namespace CloserXR.SalesNegotiator
     {
         [SerializeField] private string apiKeyOverride = "";
         [SerializeField] private string apiKeyEnvironmentVariable = "GEMINI_API_KEY";
-        [SerializeField] private string model = "Gemini 3.1 Flash Lite";
+        [SerializeField] private string model = "gemini-2.5-flash";
         [SerializeField, Range(0f, 2f)] private float temperature = 0.9f;
         [SerializeField] private int maxOutputTokens = 180;
         [SerializeField] private int maxHistoryTurns = 10;
@@ -21,6 +21,7 @@ namespace CloserXR.SalesNegotiator
         private const string EndpointTemplate =
             "https://generativelanguage.googleapis.com/v1beta/models/{0}:generateContent";
         private const string StreamingAssetsKeyFileName = "gemini_key.txt";
+        private const int RequestTimeoutSeconds = 25;
 
         private readonly List<GeminiContent> _history = new List<GeminiContent>();
         private string streamingAssetsApiKey;
@@ -113,34 +114,47 @@ namespace CloserXR.SalesNegotiator
                 yield break;
             }
 
-            byte[] wavBytes = WavEncoder.Encode(audioClip);
-            string path = "C:\\Users\\tseri\\Downloads\\gemini_debug.wav";
-            File.WriteAllBytes(path, wavBytes);
-            Debug.Log($"Saved wav to: {path}");
-            Debug.Log($"Wav size: {wavBytes.Length} bytes");
-
-            string instructionText = _history.Count == 0
-                ? $"{prompt}\n\nAnswer as the salesperson in two punchy sentences."
-                : "Answer as the salesperson in two punchy sentences.";
-
-            GeminiPart instructions = new GeminiPart { text = instructionText };
-            GeminiPart audioPart = new GeminiPart
+            GeminiRequest request = null;
+            string preparationError = null;
+            try
             {
-                inlineData = new GeminiInlineData
+                byte[] wavBytes = WavEncoder.Encode(audioClip);
+                TrySaveDebugAudio(wavBytes);
+                Debug.Log($"Wav size: {wavBytes.Length} bytes");
+
+                string instructionText = _history.Count == 0
+                    ? $"{prompt}\n\nAnswer as the salesperson in two punchy sentences."
+                    : "Answer as the salesperson in two punchy sentences.";
+
+                GeminiPart instructions = new GeminiPart { text = instructionText };
+                GeminiPart audioPart = new GeminiPart
                 {
-                    mimeType = "audio/wav",
-                    data = Convert.ToBase64String(wavBytes)
-                }
-            };
+                    inlineData = new GeminiInlineData
+                    {
+                        mimeType = "audio/wav",
+                        data = Convert.ToBase64String(wavBytes)
+                    }
+                };
 
-            List<GeminiContent> allContents = new List<GeminiContent>(_history);
-            allContents.Add(new GeminiContent
+                List<GeminiContent> allContents = new List<GeminiContent>(_history);
+                allContents.Add(new GeminiContent
+                {
+                    role = "user",
+                    parts = new[] { instructions, audioPart }
+                });
+
+                request = CreateRequest(allContents.ToArray());
+            }
+            catch (Exception ex)
             {
-                role = "user",
-                parts = new[] { instructions, audioPart }
-            });
+                preparationError = "Could not prepare microphone audio for Gemini: " + ex.Message;
+            }
 
-            GeminiRequest request = CreateRequest(allContents.ToArray());
+            if (!string.IsNullOrWhiteSpace(preparationError))
+            {
+                onError?.Invoke(preparationError);
+                yield break;
+            }
 
             yield return SendRequest(
                 request,
@@ -215,6 +229,7 @@ namespace CloserXR.SalesNegotiator
             {
                 webRequest.uploadHandler = new UploadHandlerRaw(body);
                 webRequest.downloadHandler = new DownloadHandlerBuffer();
+                webRequest.timeout = RequestTimeoutSeconds;
                 webRequest.SetRequestHeader("Content-Type", "application/json");
                 webRequest.SetRequestHeader("x-goog-api-key", apiKey);
 
@@ -238,6 +253,30 @@ namespace CloserXR.SalesNegotiator
                 }
 
                 onSuccess?.Invoke(text.Trim());
+            }
+        }
+
+        private static void TrySaveDebugAudio(byte[] wavBytes)
+        {
+            if (wavBytes == null || wavBytes.Length == 0)
+            {
+                return;
+            }
+
+            try
+            {
+                string directory = string.IsNullOrWhiteSpace(Application.temporaryCachePath)
+                    ? Path.GetTempPath()
+                    : Application.temporaryCachePath;
+                Directory.CreateDirectory(directory);
+
+                string path = Path.Combine(directory, "closerxr_gemini_debug.wav");
+                File.WriteAllBytes(path, wavBytes);
+                Debug.Log("Saved Gemini debug WAV to: " + path);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning("Could not save Gemini debug WAV: " + ex.Message);
             }
         }
 

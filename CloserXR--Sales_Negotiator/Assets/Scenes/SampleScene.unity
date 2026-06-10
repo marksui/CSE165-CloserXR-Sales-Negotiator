@@ -388,7 +388,15 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5871437061126402218, guid: a1dadc2fb996c024abf3319f4f2b9aa5, type: 3}
       propertyPath: apiKeyOverride
-      value: 
+      value: AQ.Ab8RN6I_hBMVeYni5RmU5yxNu1czuGz5zjuNfUpX3Ivhs5TL3Q
+      objectReference: {fileID: 0}
+    - target: {fileID: 5871437061126402218, guid: a1dadc2fb996c024abf3319f4f2b9aa5, type: 3}
+      propertyPath: maxOutputTokens
+      value: 500
+      objectReference: {fileID: 0}
+    - target: {fileID: 5871437061126402218, guid: a1dadc2fb996c024abf3319f4f2b9aa5, type: 3}
+      propertyPath: apiKeyEnvironmentVariable
+      value: AQ.Ab8RN6I_hBMVeYni5RmU5yxNu1czuGz5zjuNfUpX3Ivhs5TL3Q
       objectReference: {fileID: 0}
     - target: {fileID: 6451866310721777581, guid: a1dadc2fb996c024abf3319f4f2b9aa5, type: 3}
       propertyPath: m_Name
